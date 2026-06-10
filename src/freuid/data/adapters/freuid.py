@@ -6,6 +6,9 @@ from freuid.data.schema import COLUMNS, Label, AttackType
 ROOT = Path("data/raw/freuid")
 _TRAIN_CSV = ROOT / "train_labels.csv"
 _SAMPLE_SUB = ROOT / "sample_submission.csv"
+# NOTE: the archive uses DOUBLED folders: images live at train/train/<id>.jpeg and
+# public_test/public_test/<id>.jpeg, while the CSV image_path says only "train/<id>.jpeg".
+_TRAIN_IMG_DIR = ROOT / "train" / "train"
 _TEST_DIR = ROOT / "public_test" / "public_test"
 
 
@@ -18,7 +21,7 @@ def build_freuid_manifest() -> pd.DataFrame:
         if c not in df.columns:
             raise ValueError(f"column {c!r} not in {list(df.columns)} — FREUID schema changed")
     out = pd.DataFrame({
-        "path": df["image_path"].map(lambda p: str(ROOT / p)),
+        "path": df["id"].astype(str).map(lambda i: str(_TRAIN_IMG_DIR / f"{i}.jpeg")),
         "label": df["label"].astype(int),
         "attack_type": df["label"].map(
             lambda v: AttackType.NONE if int(v) == Label.BONA_FIDE else AttackType.UNKNOWN),
