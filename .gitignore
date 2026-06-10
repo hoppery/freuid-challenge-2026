@@ -1,5 +1,6 @@
-# Data (never commit — large + licensed non-commercial)
-data/
+# Data (never commit — large + licensed non-commercial). Anchored to repo root
+# so it does NOT match source dirs like src/freuid/data.
+/data/
 manifests/*.parquet
 manifests/*.csv
 *.zip
