@@ -75,7 +75,7 @@ def main():
     tr, val = split(df, cfg)
     print(f"train={len(tr)} val={len(val)} holdout_by={cfg.holdout_by!r}")
 
-    tl = DataLoader(ManifestDataset(tr, build_transforms("train", cfg.img_size)),
+    tl = DataLoader(ManifestDataset(tr, build_transforms(cfg.train_aug, cfg.img_size)),
                     batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.num_workers,
                     pin_memory=True, drop_last=True)
     vl = DataLoader(ManifestDataset(val, build_transforms("eval", cfg.img_size)),
