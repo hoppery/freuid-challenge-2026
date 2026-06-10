@@ -33,6 +33,10 @@ Ensemble complementary inductive biases (freq-heavy + RGB-semantic + recapture-t
 If a lever does NOT improve domain-holdout APCER@1%BPCER: brainstorm root cause (overfit to public domain? augmentation destroying the cue? metric-threshold artifact? class imbalance? doc_type leakage?), form a falsifiable hypothesis, design the next single-factor experiment, run, repeat.
 
 ## Results log
+Validation = leave-one-doc-type-out (held out MOZAMBIQUE/DL, 13,365 imgs; train on 55,987).
 | date | exp | backbone | aug | val APCER@1%BPCER | AuDET | ROC-AUC | notes |
 |---|---|---|---|---|---|---|---|
-| _pending data download_ | baseline | convnextv2_tiny | light | — | — | — | establishes reference |
+| 2026-06-11 | **baseline** | convnextv2_tiny | light | **0.501** | **0.257** | **0.743** | VERIFIED plausible (beats zero-shot forensic SOTA 0.52–0.62; brackets DeepID OOD winners 0.70–0.73). docs/baseline-verification.md |
+| 2026-06-11 | exp_freq | convnextv2_tiny (freq dual) | light | 0.988 | 0.478 | 0.522 | FAIL — global FFT learns doc-type shortcut, fails cross-domain. Fix: local high-freq residual, not global FFT |
+| _GPU2 fault_ | exp_heavyaug | convnextv2_tiny | heavy | — | — | — | crashed (GPU2 hw fault); re-run pending |
+| _GPU2 fault_ | exp_dinov2 | dinov2_vitb14 | heavy | — | — | — | crashed (GPU2 hw fault); re-run pending |
