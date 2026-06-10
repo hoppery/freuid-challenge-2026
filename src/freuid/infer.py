@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from freuid.config import Config
 from freuid.data.dataset import ManifestDataset
 from freuid.data.transforms import build_transforms
-from freuid.models.classifier import build_model
+from freuid.models.classifier import build_classifier
 from freuid.data.adapters.freuid import build_freuid_test_index
 
 # Submission header confirmed from the real sample_submission.csv: id,label
@@ -26,7 +26,7 @@ def main():
     a = ap.parse_args()
     cfg = Config.load(a.config)
     ck = torch.load(a.ckpt, map_location="cuda", weights_only=False)
-    model = build_model(cfg.backbone, pretrained=False).cuda()
+    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=False).cuda()
     model.load_state_dict(ck["model"])
     model.eval()
 

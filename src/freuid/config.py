@@ -7,6 +7,7 @@ import yaml
 class Config:
     manifest: str = "manifests/freuid.parquet"
     backbone: str = "convnextv2_tiny.fcmae_ft_in22k_in1k"
+    model_type: str = "rgb"   # "rgb" (baseline) | "freq_dual"
     img_size: int = 384
     batch_size: int = 32
     epochs: int = 10

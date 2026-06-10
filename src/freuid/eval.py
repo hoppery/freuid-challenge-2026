@@ -8,7 +8,7 @@ from freuid.config import Config
 from freuid.data.schema import read_manifest
 from freuid.data.dataset import ManifestDataset
 from freuid.data.transforms import build_transforms
-from freuid.models.classifier import build_model
+from freuid.models.classifier import build_classifier
 from freuid.metrics import compute_metrics, metrics_by_group
 from freuid.train import split
 
@@ -21,7 +21,7 @@ def main():
     a = ap.parse_args()
     cfg = Config.load(a.config)
     ck = torch.load(a.ckpt, map_location="cuda", weights_only=False)
-    model = build_model(cfg.backbone, pretrained=False).cuda()
+    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=False).cuda()
     model.load_state_dict(ck["model"])
     model.eval()
 
