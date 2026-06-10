@@ -12,7 +12,7 @@ def build_transforms(mode: str, size: int = 384):
             A.LongestMaxSize(max_size=size),
             A.PadIfNeeded(size, size, border_mode=0),
             A.HorizontalFlip(p=0.5),
-            A.ShiftScaleRotate(shift_limit=0.03, scale_limit=0.05, rotate_limit=3, p=0.3),
+            A.Affine(translate_percent=(0.0, 0.03), scale=(0.95, 1.05), rotate=(-3, 3), p=0.3),
             A.Normalize(_MEAN, _STD),
             ToTensorV2(),
         ])

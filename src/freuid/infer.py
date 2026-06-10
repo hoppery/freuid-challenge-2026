@@ -10,9 +10,9 @@ from freuid.data.transforms import build_transforms
 from freuid.models.classifier import build_model
 from freuid.data.adapters.freuid import build_freuid_test_index
 
-# Confirm these against the real sample_submission header (recorded in Task 4).
-_ID_HEADER = "image_id"
-_PRED_HEADER = "prediction"
+# Submission header confirmed from the real sample_submission.csv: id,label
+_ID_HEADER = "id"
+_PRED_HEADER = "label"
 
 
 @torch.no_grad()
@@ -21,6 +21,8 @@ def main():
     ap.add_argument("--ckpt", default="checkpoints/baseline/best.pt")
     ap.add_argument("--config", default="checkpoints/baseline/config.yaml")
     ap.add_argument("--out", default="submission.csv")
+    ap.add_argument("--existing-only", action="store_true",
+                    help="predict only test images present on disk (smoke tests)")
     a = ap.parse_args()
     cfg = Config.load(a.config)
     ck = torch.load(a.ckpt, map_location="cuda", weights_only=False)
@@ -28,7 +30,7 @@ def main():
     model.load_state_dict(ck["model"])
     model.eval()
 
-    test = build_freuid_test_index()
+    test = build_freuid_test_index(existing_only=a.existing_only)
     ds = ManifestDataset(
         test.assign(label=0, attack_type="none", doc_type="u", source="freuid", split="test"),
         build_transforms("eval", cfg.img_size), with_label=False)

@@ -25,7 +25,7 @@ def split(df, cfg: Config):
     """Domain-holdout split by cfg.holdout_by, else random."""
     rng = np.random.default_rng(cfg.seed)
     if cfg.holdout_by and cfg.holdout_by in df and df[cfg.holdout_by].nunique() > 1:
-        groups = df[cfg.holdout_by].unique().copy()
+        groups = np.asarray(df[cfg.holdout_by].astype(str).unique(), dtype=object)
         rng.shuffle(groups)
         n_val = max(1, int(len(groups) * cfg.val_fraction))
         val_groups = set(groups[:n_val])
