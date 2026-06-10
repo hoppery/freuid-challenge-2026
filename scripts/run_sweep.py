@@ -1,14 +1,21 @@
-"""Parallel experiment runner: launches one training run per GPU (4x RTX 3090),
-waits for all, then collects each run's best domain-holdout metrics into a results
-CSV + prints a table. Automates the Stage-1 sweep in docs/experiments.md.
+"""Parallel experiment runner over a restricted GPU pool.
+
+GPU POLICY (per user): train on 3 GPUs only, EXCLUDING the monitor GPU (GPU 3 has the
+display attached). Allowed training GPUs = [0, 1, 2]. NOTE: GPU 0 may be shared with
+another project's job — keep its batch size modest.
+
+Schedules a list of experiment configs onto the GPU pool: at most len(pool) run at once,
+the rest queue until a GPU frees. Collects each run's best domain-holdout metrics into a
+results CSV + prints a ranked table.
 
 Usage:
-  python3 scripts/run_sweep.py --exp baseline:0 exp_heavyaug:1 exp_freq:2 exp_dinov2:3
-  python3 scripts/run_sweep.py            # uses DEFAULT_SWEEP
-Each token is <config-stem>:<gpu-index> (config = configs/<stem>.yaml).
+  python3 scripts/run_sweep.py                                  # DEFAULT_CONFIGS on [0,1,2]
+  python3 scripts/run_sweep.py --configs baseline exp_freq      # subset
+  python3 scripts/run_sweep.py --gpus 1 2                       # override pool
 """
 from __future__ import annotations
 import argparse
+import csv
 import json
 import os
 import subprocess
@@ -16,10 +23,11 @@ import time
 from pathlib import Path
 import torch
 
-DEFAULT_SWEEP = ["baseline:0", "exp_heavyaug:1", "exp_freq:2", "exp_dinov2:3"]
+ALLOWED_GPUS = [0, 1, 2]   # exclude GPU 3 (monitor)
+DEFAULT_CONFIGS = ["baseline", "exp_heavyaug", "exp_freq", "exp_dinov2"]
 
 
-def launch(stem: str, gpu: int) -> tuple[str, subprocess.Popen, Path]:
+def launch(stem: str, gpu: int):
     cfg = f"configs/{stem}.yaml"
     if not Path(cfg).exists():
         raise FileNotFoundError(cfg)
@@ -30,17 +38,16 @@ def launch(stem: str, gpu: int) -> tuple[str, subprocess.Popen, Path]:
     env.pop("PYTHONPATH", None)  # avoid ROS pollution
     p = subprocess.Popen(["python3", "-m", "freuid.train", "--config", cfg],
                          stdout=logf, stderr=subprocess.STDOUT, env=env)
-    print(f"launched {stem} on GPU{gpu} (pid {p.pid}) -> {logdir}/train.log", flush=True)
-    return stem, p, logdir
+    print(f"[launch] {stem} on GPU{gpu} (pid {p.pid}) -> {logdir}/train.log", flush=True)
+    return p, logdir
 
 
-def collect(stem: str, logdir: Path) -> dict:
-    best = logdir / "best.pt"
+def collect(stem: str) -> dict:
+    best = Path("checkpoints") / stem / "best.pt"
     if not best.exists():
         return {"exp": stem, "status": "NO_CKPT"}
     ck = torch.load(best, map_location="cpu", weights_only=False)
-    m = ck.get("metrics", {})
-    cfg = ck.get("cfg", {})
+    m, cfg = ck.get("metrics", {}), ck.get("cfg", {})
     return {
         "exp": stem, "status": "ok",
         "backbone": cfg.get("backbone"), "model_type": cfg.get("model_type"),
@@ -53,28 +60,40 @@ def collect(stem: str, logdir: Path) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exp", nargs="*", default=DEFAULT_SWEEP)
+    ap.add_argument("--configs", nargs="*", default=DEFAULT_CONFIGS)
+    ap.add_argument("--gpus", nargs="*", type=int, default=ALLOWED_GPUS)
     a = ap.parse_args()
     ngpu = torch.cuda.device_count()
-    procs = []
-    for tok in a.exp:
-        stem, gpu = tok.rsplit(":", 1)
-        gpu = int(gpu)
-        if gpu >= ngpu:
-            print(f"WARN {stem}: GPU{gpu} >= {ngpu} available; skipping")
-            continue
-        procs.append(launch(stem, gpu))
-        time.sleep(5)  # stagger weight downloads / startup
+    pool = [g for g in a.gpus if g < ngpu]
+    if 3 in pool:
+        print("WARN: GPU3 is the monitor GPU and should be excluded; removing it.")
+        pool = [g for g in pool if g != 3]
+    print(f"GPU pool = {pool} | configs = {a.configs}", flush=True)
 
-    print(f"\nwaiting for {len(procs)} runs...", flush=True)
+    queue = list(a.configs)
+    free = list(pool)
+    running = {}   # gpu -> (stem, proc, logdir)
     results = []
-    for stem, p, logdir in procs:
-        rc = p.wait()
-        print(f"[{stem}] exited rc={rc}", flush=True)
-        results.append(collect(stem, logdir))
+    while queue or running:
+        while queue and free:
+            gpu = free.pop(0)
+            stem = queue.pop(0)
+            try:
+                p, logdir = launch(stem, gpu)
+                running[gpu] = (stem, p, logdir)
+                time.sleep(8)  # stagger startup / weight downloads
+            except FileNotFoundError as e:
+                print(f"[skip] {stem}: {e}", flush=True)
+                free.append(gpu)
+        for gpu, (stem, p, logdir) in list(running.items()):
+            if p.poll() is not None:
+                print(f"[done] {stem} rc={p.returncode}", flush=True)
+                results.append(collect(stem))
+                del running[gpu]
+                free.append(gpu)
+        time.sleep(10)
 
     out = Path("docs/experiments_results.csv")
-    import csv
     keys = ["exp", "status", "backbone", "model_type", "train_aug", "img_size",
             "apcer@1%bpcer", "audet", "roc_auc"]
     with open(out, "w", newline="") as f:
@@ -84,7 +103,7 @@ def main():
             w.writerow({k: r.get(k, "") for k in keys})
     print("\n=== SWEEP RESULTS (lower apcer@1%bpcer = better) ===")
     print(json.dumps(sorted(results, key=lambda r: r.get("apcer@1%bpcer", 9)), indent=2))
-    print(f"\nwrote {out}")
+    print(f"wrote {out}")
 
 
 if __name__ == "__main__":
