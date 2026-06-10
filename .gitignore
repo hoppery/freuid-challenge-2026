@@ -1,0 +1,38 @@
+# Data (never commit — large + licensed non-commercial)
+data/
+manifests/*.parquet
+manifests/*.csv
+*.zip
+*.tar
+*.tar.gz
+
+# Secrets — never commit credentials
+**/kaggle.json
+**/access_token
+.env
+*.pem
+
+# Model artifacts
+checkpoints/
+runs/
+wandb/
+*.ckpt
+*.pt
+*.pth
+lightning_logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
