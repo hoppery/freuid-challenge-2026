@@ -17,6 +17,23 @@ def test_freq_dual_forward():
     assert y.shape == (2, 1)
 
 
+def test_hpf_dual_forward():
+    m = build_classifier("hpf_dual", pretrained=False)
+    m.eval()
+    with torch.no_grad():
+        y = m(torch.randn(2, 3, 128, 128))
+    assert y.shape == (2, 1)
+
+
+def test_highpass_suppresses_lowfreq():
+    from freuid.models.freq_classifier import HighPassResidual
+    hpf = HighPassResidual()
+    x = torch.rand(1, 3, 64, 64)
+    r = hpf(x)
+    # residual should have much smaller magnitude than the (low-freq-dominated) input
+    assert r.abs().mean() < x.abs().mean()
+
+
 def test_unknown_model_type_raises():
     with pytest.raises(ValueError, match="model_type"):
         build_classifier("nope", pretrained=False)

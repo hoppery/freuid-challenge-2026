@@ -19,6 +19,9 @@ def build_classifier(model_type: str = "rgb",
     if model_type == "freq_dual":
         from freuid.models.freq_classifier import build_freq_model
         return build_freq_model(backbone, pretrained=pretrained, drop_rate=drop_rate)
+    if model_type == "hpf_dual":
+        from freuid.models.freq_classifier import build_hpf_model
+        return build_hpf_model(backbone, pretrained=pretrained, drop_rate=drop_rate)
     if model_type == "rgb":
         return build_model(backbone, pretrained=pretrained, drop_rate=drop_rate)
     raise ValueError(f"unknown model_type: {model_type!r}")

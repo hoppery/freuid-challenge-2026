@@ -63,11 +63,10 @@ def main():
     ap.add_argument("--configs", nargs="*", default=DEFAULT_CONFIGS)
     ap.add_argument("--gpus", nargs="*", type=int, default=ALLOWED_GPUS)
     a = ap.parse_args()
-    ngpu = torch.cuda.device_count()
-    pool = [g for g in a.gpus if g < ngpu]
-    if 3 in pool:
-        print("WARN: GPU3 is the monitor GPU and should be excluded; removing it.")
-        pool = [g for g in pool if g != 3]
+    # Do NOT call torch.cuda.device_count() here: a faulted GPU (e.g. GPU2 off the bus)
+    # poisons CUDA enumeration in the PARENT and zeroes the device count. Each child sets
+    # its own CUDA_VISIBLE_DEVICES (absolute index) and never touches other GPUs. Trust --gpus.
+    pool = [g for g in a.gpus if g != 3]  # always exclude monitor GPU3
     print(f"GPU pool = {pool} | configs = {a.configs}", flush=True)
 
     queue = list(a.configs)

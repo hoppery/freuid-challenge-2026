@@ -1,0 +1,16 @@
+manifest: manifests/freuid.parquet
+backbone: convnextv2_tiny.fcmae_ft_in22k_in1k
+model_type: hpf_dual
+train_aug: heavy
+img_size: 384
+batch_size: 24
+epochs: 10
+lr: 0.0003
+weight_decay: 0.05
+num_workers: 8
+val_fraction: 0.15
+holdout_by: doc_type
+seed: 42
+out_dir: checkpoints/exp_hpf
+amp: true
+pretrained: true
