@@ -8,6 +8,15 @@ Why domain-holdout, not random split: SOTA (docs/sota-research.md) shows in-doma
 - `configs/baseline.yaml`: ConvNeXt V2 Tiny, pretrained, light aug, 384px, 10 ep.
 - Establishes the honest reference APCER@1%BPCER / AuDET. Confirm inference + submission format end-to-end. This is "the baseline" per the directive.
 
+## ⚡ READY-TO-LAUNCH on GPU recovery (GPU2 fault currently blocks all CUDA)
+GPU2 fell off the bus → poisons CUDA for ALL new processes. Recover via `sudo nvidia-smi --gpu-reset -i 2` or reboot, then verify `CUDA_VISIBLE_DEVICES=0 python -c "import torch;torch.zeros(1).cuda()"`. Then launch the next wave (2 GPUs, queued):
+```bash
+cd ~/ijcai_freuid_chanllenge && unset PYTHONPATH
+CUDA_VISIBLE_DEVICES=0,1 python3 scripts/run_sweep.py \
+  --configs exp_heavyaug exp_dinov2 exp_hpf exp_convnext_base baseline_indomain --gpus 0 1
+```
+Aux data ready: `manifests/fantasyid.parquet` (3,284 imgs: 2,351 GenAI face/text forgeries + 933 bona-fide; 13 country doc-types incl. Arabic/Persian) — for a combined-data experiment in a later wave.
+
 ## Stage 1 — Known-technique improvements (총동원), ablate one lever at a time
 | Exp | Config | Hypothesis (lever from SOTA) |
 |---|---|---|
