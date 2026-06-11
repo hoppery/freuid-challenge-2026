@@ -1,1 +1,5 @@
 [OK]   fantasyid in 11375s
+[FAIL] dlc2021: TimeoutExpired: Command 'zenodo_get 10.5281/zenodo.6466768' timed out after 36000 seconds
+[FAIL] midv_holo: TimeoutExpired: Command 'lftp -e "set net:timeout 30; set net:max-retries 3; mirror -c /midv-holo ./media; quit" smartengines.com' timed out after 36000 seconds
+[OK]   docxpand in 4649s
+[OK]   bid in 13602s
