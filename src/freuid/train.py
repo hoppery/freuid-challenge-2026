@@ -82,7 +82,7 @@ def main():
                     batch_size=cfg.batch_size, shuffle=False, num_workers=cfg.num_workers,
                     pin_memory=True)
 
-    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=cfg.pretrained).to(device)
+    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=cfg.pretrained, img_size=cfg.img_size).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=cfg.epochs)
     scaler = torch.amp.GradScaler(enabled=cfg.amp)

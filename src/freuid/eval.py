@@ -21,7 +21,7 @@ def main():
     a = ap.parse_args()
     cfg = Config.load(a.config)
     ck = torch.load(a.ckpt, map_location="cuda", weights_only=False)
-    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=False).cuda()
+    model = build_classifier(cfg.model_type, cfg.backbone, pretrained=False, img_size=cfg.img_size).cuda()
     model.load_state_dict(ck["model"])
     model.eval()
 
