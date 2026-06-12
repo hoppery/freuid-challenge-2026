@@ -23,7 +23,8 @@ import time
 from pathlib import Path
 import torch
 
-ALLOWED_GPUS = [0, 1, 2]   # exclude GPU 3 (monitor)
+ALLOWED_GPUS = [0, 1]   # GPU3 = monitor (excluded); GPU2 = faulty hardware (crashes
+                        # under load, off the bus, poisons CUDA) -> excluded until repaired.
 DEFAULT_CONFIGS = ["baseline", "exp_heavyaug", "exp_freq", "exp_dinov2"]
 
 
