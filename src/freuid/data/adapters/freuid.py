@@ -1,15 +1,18 @@
 from __future__ import annotations
+import os
 from pathlib import Path
 import pandas as pd
 from freuid.data.schema import COLUMNS, Label, AttackType
 
 ROOT = Path("data/raw/freuid")
 _TRAIN_CSV = ROOT / "train_labels.csv"
-_SAMPLE_SUB = ROOT / "sample_submission.csv"
+# RELEASE-DAY OVERRIDE: point at the private test on release via env vars (no code edit needed):
+#   FREUID_SAMPLE_SUB=<path to private sample_submission.csv>  FREUID_TEST_DIR=<dir with <id>.jpeg>
+_SAMPLE_SUB = Path(os.environ.get("FREUID_SAMPLE_SUB", str(ROOT / "sample_submission.csv")))
 # NOTE: the archive uses DOUBLED folders: images live at train/train/<id>.jpeg and
 # public_test/public_test/<id>.jpeg, while the CSV image_path says only "train/<id>.jpeg".
 _TRAIN_IMG_DIR = ROOT / "train" / "train"
-_TEST_DIR = ROOT / "public_test" / "public_test"
+_TEST_DIR = Path(os.environ.get("FREUID_TEST_DIR", str(ROOT / "public_test" / "public_test")))
 
 
 def build_freuid_manifest() -> pd.DataFrame:
@@ -29,7 +32,9 @@ def build_freuid_manifest() -> pd.DataFrame:
         "source": "freuid",
         "split": "train",
     })
-    return out[COLUMNS]
+    if "is_digital" in df.columns:
+        out["is_digital"] = df["is_digital"].astype(bool)
+    return out
 
 
 def build_freuid_test_index(existing_only: bool = False) -> pd.DataFrame:

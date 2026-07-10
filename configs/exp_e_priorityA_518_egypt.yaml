@@ -1,0 +1,25 @@
+# Priority-A (goal #1): type-invariant generalization via broad GENUINE manifold + SEMANTIC-
+# CONSISTENT attacks only (FREUID real attacks 2x-upweighted + IDNet inpaint GenAI; NO crop,
+# NO SBD). Refined recipe distinct from the failed D2-D4 naive concat. 518px screen first
+# (faster; matches D2-D4). Baseline to beat: FREUID-only 518 EGYPT 0.117 + FantasyID AUC 0.586.
+# If it beats both axes → scale to 896 and compare vs FREUID-only 896 (EGYPT 0.0217).
+manifest: manifests/union_priorityA.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 518
+batch_size: 32
+epochs: 5
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 28
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_e_priorityA_518_egypt
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5

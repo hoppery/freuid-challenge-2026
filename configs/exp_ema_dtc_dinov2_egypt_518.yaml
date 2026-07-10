@@ -1,0 +1,24 @@
+# Iteration #7: the full DTC method (TraceMix + consistency head) grafted onto the
+# winning host from iteration #6b (DINOv2, last-2-blocks unfrozen, 378px).
+# Single-factor vs exp_dinov2_unfreeze2: adds ONLY the DTC components.
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 518
+batch_size: 32
+epochs: 15
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 16
+val_fraction: 0.15
+holdout_by: doc_type
+seed: 42
+holdout_groups: "EGYPT/DL"
+out_dir: checkpoints/exp_ema_dtc_dinov2_egypt_518
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+ema_decay: 0.999

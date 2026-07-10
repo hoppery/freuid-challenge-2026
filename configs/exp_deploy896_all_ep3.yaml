@@ -1,0 +1,22 @@
+# Conservative early-epoch 896 all-types deployment. epochs=3 → best.pt ≈ ep2 (less seen-type
+# overfit than the 6-epoch ep5 model whose public regressed 0.204→0.216). Test: does the early
+# checkpoint recover public while keeping LODO? Aggressive GPU (batch 48 ~22GB), lr 1e-4 fixed.
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 48
+epochs: 3
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 28
+val_fraction: 0.12
+holdout_by: ""
+seed: 42
+out_dir: checkpoints/exp_deploy896_all_ep3
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5

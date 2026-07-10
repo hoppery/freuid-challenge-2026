@@ -1,0 +1,28 @@
+# GEN-1a (deep-research lever #1: DON'T ERODE THE BACKBONE). 4 research agents converged: full/
+# partial DINOv2 unfreezing destroys pretrained generalization → unseen-type collapse. Our E2-LODO
+# EGYPT collapsed exactly this way (ep0 0.0406 → ep1 0.96 as training eroded the backbone). TEST:
+# FULLY FROZEN backbone (unfreeze_blocks 0), only the DTC head + capture aug. If EGYPT stays low
+# ACROSS epochs (no collapse) while capture proxy still lifts, the erosion hypothesis is confirmed
+# and we get capture + unseen-type in ONE model (breaks the anti-correlation). E2 recipe, EGYPT hold.
+manifest: manifests/freuid_fid_upweighted.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 24
+epochs: 4
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 16
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_gen1a_frozen_egypt
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 0
+dtc_lambda: 0.5
+tracemix_p: 0.5
+heavy_recapture: true
+save_every_epoch: true

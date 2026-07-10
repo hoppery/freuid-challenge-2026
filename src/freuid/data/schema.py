@@ -23,6 +23,10 @@ ATTACK_TYPES = {
     "none", "physical", "genai_digital", "print_capture", "other_digital", "unknown",
 }
 COLUMNS = ["path", "label", "attack_type", "doc_type", "source", "split"]
+# optional passthrough columns, preserved when present (e.g. FREUID's is_digital flag:
+# True = born-digital, False = physically printed-and-captured — only 20/69,352 train
+# images are physical, so it's an analysis column, not a training signal)
+EXTRA_COLUMNS = ["is_digital"]
 
 
 def validate_manifest(df: pd.DataFrame) -> None:
@@ -41,7 +45,8 @@ def validate_manifest(df: pd.DataFrame) -> None:
 
 def write_manifest(df: pd.DataFrame, path: str | Path) -> None:
     validate_manifest(df)
-    out = df[COLUMNS].copy()
+    keep = COLUMNS + [c for c in EXTRA_COLUMNS if c in df.columns]
+    out = df[keep].copy()
     out["label"] = out["label"].astype(int)
     out["attack_type"] = out["attack_type"].astype(str)
     out["doc_type"] = out["doc_type"].astype(str)
@@ -56,4 +61,4 @@ def write_manifest(df: pd.DataFrame, path: str | Path) -> None:
 def read_manifest(path: str | Path) -> pd.DataFrame:
     df = pd.read_parquet(path)
     validate_manifest(df)
-    return df[COLUMNS]
+    return df[COLUMNS + [c for c in EXTRA_COLUMNS if c in df.columns]]

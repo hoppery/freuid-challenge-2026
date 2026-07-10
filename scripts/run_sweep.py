@@ -1,17 +1,16 @@
-"""Parallel experiment runner over a restricted GPU pool.
+"""Parallel experiment runner over the GPU pool.
 
-GPU POLICY (per user): train on 3 GPUs only, EXCLUDING the monitor GPU (GPU 3 has the
-display attached). Allowed training GPUs = [0, 1, 2]. NOTE: GPU 0 may be shared with
-another project's job — keep its batch size modest.
+GPU POLICY: both GPUs (0 and 1) are available for training. GPU 1 has the display
+attached but with 98 GB VRAM the display overhead (~1 GB) is negligible.
 
 Schedules a list of experiment configs onto the GPU pool: at most len(pool) run at once,
 the rest queue until a GPU frees. Collects each run's best domain-holdout metrics into a
 results CSV + prints a ranked table.
 
 Usage:
-  python3 scripts/run_sweep.py                                  # DEFAULT_CONFIGS on [0,1,2]
+  python3 scripts/run_sweep.py                                  # DEFAULT_CONFIGS on [0,1]
   python3 scripts/run_sweep.py --configs baseline exp_freq      # subset
-  python3 scripts/run_sweep.py --gpus 1 2                       # override pool
+  python3 scripts/run_sweep.py --gpus 0 1                       # override pool
 """
 from __future__ import annotations
 import argparse
@@ -23,9 +22,8 @@ import time
 from pathlib import Path
 import torch
 
-ALLOWED_GPUS = [0, 1]   # GPU3 = monitor (excluded); GPU2 = faulty hardware (crashes
-                        # under load, off the bus, poisons CUDA) -> excluded until repaired.
-DEFAULT_CONFIGS = ["baseline", "exp_heavyaug", "exp_freq", "exp_dinov2"]
+ALLOWED_GPUS = [0, 1]   # both GPUs available; GPU1 has display but 98 GB VRAM makes it negligible
+DEFAULT_CONFIGS = ["baseline", "exp_heavyaug", "exp_hpf", "exp_dinov2"]
 
 
 def launch(stem: str, gpu: int):
@@ -64,10 +62,7 @@ def main():
     ap.add_argument("--configs", nargs="*", default=DEFAULT_CONFIGS)
     ap.add_argument("--gpus", nargs="*", type=int, default=ALLOWED_GPUS)
     a = ap.parse_args()
-    # Do NOT call torch.cuda.device_count() here: a faulted GPU (e.g. GPU2 off the bus)
-    # poisons CUDA enumeration in the PARENT and zeroes the device count. Each child sets
-    # its own CUDA_VISIBLE_DEVICES (absolute index) and never touches other GPUs. Trust --gpus.
-    pool = [g for g in a.gpus if g != 3]  # always exclude monitor GPU3
+    pool = list(a.gpus)
     print(f"GPU pool = {pool} | configs = {a.configs}", flush=True)
 
     queue = list(a.configs)

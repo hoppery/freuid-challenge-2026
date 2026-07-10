@@ -1,0 +1,32 @@
+# PUBLIC-OPTIMAL ViT-Large production (2026-06-18). Reproduces the other-PC 0.043 public model:
+# IDENTICAL to exp_prod896_large EXCEPT loss=BCE (not tail_margin). Their docs: BCE-896 public 0.0798
+# vs tail-896 0.1302 — BCE is public-optimal (tail reshapes scores for the unseen tail, hurting the
+# saturated born-digital public slice); ViT-L is the stronger backbone over the ViT-B that hit 0.0798.
+# Public test = born-digital → this is the PUBLIC card (the tail_margin ViT-L stays the PRIVATE card).
+amp: true
+amp_dtype: bf16
+backbone: vit_large_patch14_reg4_dinov2.lvd142m
+batch_size: 16
+early_stop_patience: 2
+ema: true
+epochs: 6
+fda: true
+fda_beta: 0.05
+grad_accum: 2
+grad_checkpointing: false
+grad_clip: 1.0
+holdout_by: ''
+img_size: 896
+loss: bce
+lr: 5.0e-05
+manifest: manifests/union_balanced_v4.parquet
+model_type: rgb
+num_workers: 10
+out_dir: checkpoints/exp_union_vitl
+pretrained: true
+seed: 42
+train_aug: medium
+unfreeze_last_k: 2
+val_fraction: 0.12
+val_sources: freuid
+weight_decay: 0.05

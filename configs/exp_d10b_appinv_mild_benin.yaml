@@ -1,0 +1,23 @@
+# D10b: MILD appearance-invariance, 896px BENIN LODO. Critical test: does the gentler aug
+# AVOID the BENIN harm the strong version caused (0.078 -> 0.19)? Target: BENIN <= ~0.078.
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 8
+epochs: 8
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 16
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "BENIN/DL"
+seed: 42
+out_dir: checkpoints/exp_d10b_appinv_mild_benin
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+appearance_inv_mild: true

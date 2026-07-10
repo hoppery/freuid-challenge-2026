@@ -1,0 +1,29 @@
+# D14: RESOLUTION TILING (user-chosen; build on our one validated lever). Train on LARGE native-
+# resolution tiles (896px crops covering ~40-80% of the card = higher effective resolution than
+# resizing the whole 1585x1000 card to 896) + 5-crop eval aggregation. Fixes iteration #11's
+# failure (tiny 0.08-0.35 patches destroyed layout) with LARGE tiles. Baseline: whole-doc 896
+# EGYPT 0.0217. If tiling beats it, scale the win.
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 16
+epochs: 8
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 24
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_d14_tile_egypt
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+patch_mode: true
+patch_scale_min: 0.4
+patch_scale_max: 0.8
+patch_eval_frac: 0.75

@@ -1,0 +1,23 @@
+# D11: chroma-consistency stream targeting BENIN's clean-GenAI tail. 896 BENIN LODO.
+# Baseline to beat: 896 BENIN 0.0780 (AuDET 0.030 / APCER@1% 0.122). batch 8 (clean compare).
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 8
+epochs: 8
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 16
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "BENIN/DL"
+seed: 42
+out_dir: checkpoints/exp_d11_chroma_benin
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+use_chroma: true

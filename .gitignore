@@ -37,3 +37,28 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+
+# --- submission-repo additions (experiment outputs / large registries not needed to reproduce) ---
+keep/
+.reports/
+reports/
+.capdumps/
+/submission*.csv
+/*.csv
+docs/presentation/
+docs/superpowers/
+.claude/
+_transfer/checkpoints/
+_transfer/.reports/
+_transfer/wandb/
+
+# LaTeX build artifacts (technical report) — keep the .tex/.pdf/.bib, drop the build junk
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+docs/technical_report.log
+docs/technical_report.out

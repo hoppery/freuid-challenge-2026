@@ -1,0 +1,25 @@
+# E2-LODO EGYPT: does capture-robustness training (FantasyID-physical upweighted + heavy
+# print-capture aug) COST unseen-type generalization? Train E2 recipe but hold out EGYPT/DL, so the
+# val set = unseen EGYPT fold. Compare log.csv FREUID to base-896 LODO EGYPT (no-TENT 0.0217). If
+# E2-EGYPT ~ base, E2 is strictly better (keeps unseen, gains capture) -> single best model.
+manifest: manifests/freuid_fid_upweighted.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 24
+epochs: 4
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 14
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_e2lodo_egypt
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+heavy_recapture: true

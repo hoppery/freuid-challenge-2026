@@ -1,0 +1,21 @@
+# Keep the build context small: exclude everything heavy, then re-include only what the image needs.
+checkpoints/*
+!checkpoints/exp_e6_fda
+!checkpoints/exp_e6_fda1120
+!checkpoints/exp_e6reg_fda1120
+data/
+_transfer/
+manifests/
+reports/
+.reports/
+.capdumps/
+.git/
+docs/
+tests/
+submission_*.csv
+*.csv
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pyc

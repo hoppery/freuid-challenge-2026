@@ -1,0 +1,17 @@
+manifest: manifests/_dtc_smoke.parquet
+backbone: convnextv2_tiny.fcmae_ft_in22k_in1k
+model_type: dtc
+img_size: 256
+batch_size: 32
+epochs: 1
+lr: 0.0003
+weight_decay: 0.05
+num_workers: 8
+val_fraction: 0.2
+holdout_by: doc_type
+seed: 42
+out_dir: checkpoints/smoke_dtc
+amp: true
+pretrained: true
+dtc_lambda: 0.5
+tracemix_p: 0.5

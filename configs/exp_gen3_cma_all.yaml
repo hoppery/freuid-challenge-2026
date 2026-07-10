@@ -1,0 +1,26 @@
+# GEN-3 deployment: all-types CMA (FREUID-only, holdout="") to fuse with base-all (deploy896_all)
+# as the deployable UNSEEN-TYPE card. LODO proved base+CMA rank-fusion = best unseen-type (EGYPT
+# 0.0030, BENIN 0.0823, mean 0.0427). CMA peaks at ep1 in LODO → save per-epoch, deployment fusion
+# uses ep1. Unseen-type card (capture handled by the separate E2-early card).
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 16
+epochs: 3
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 28
+val_fraction: 0.1
+holdout_by: ""
+seed: 42
+out_dir: checkpoints/exp_gen3_cma_all
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+use_chroma: true
+cma_chroma: true
+save_every_epoch: true

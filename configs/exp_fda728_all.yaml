@@ -1,0 +1,25 @@
+# PUBLIC thrust (user target: public < 0.05). FDA is the validated public lever (FDA prod896 0.0798
+# vs no-FDA 0.2159). This is the 728-resolution sibling of exp_prod896_fda_all (896) — 728+896
+# resolution-diversity rank-ensemble is the classic public-squeezer. all-5-types, FDA p0.5,
+# save_every_epoch so the ensemble epoch can be picked by Kaggle public submission (no local public).
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 728
+batch_size: 48
+epochs: 6
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 26
+val_fraction: 0.12
+holdout_by: ""
+seed: 42
+out_dir: checkpoints/exp_fda728_all
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+fda_p: 0.5
+save_every_epoch: true

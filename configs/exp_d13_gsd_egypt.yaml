@@ -1,0 +1,26 @@
+# D13: Geometric Semantic Decoupling (GSD, arXiv 2603.09242) — suppress dominant semantic
+# subspace of a frozen CLIP stream → forensic residual, targeting EGYPT's semantic-shortcut
+# failure (unseen-type genuine docs flagged as attack). 518px screen vs FREUID-only 518 EGYPT
+# 0.117. batch 24 for a stable per-batch SVD subspace estimate.
+manifest: manifests/freuid.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 518
+batch_size: 24
+epochs: 8
+lr: 0.0001
+weight_decay: 0.05
+num_workers: 24
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_d13_gsd_egypt
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 2
+dtc_lambda: 0.5
+tracemix_p: 0.5
+use_gsd: true
+gsd_r: 3

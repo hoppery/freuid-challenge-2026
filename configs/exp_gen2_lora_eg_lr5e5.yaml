@@ -1,0 +1,29 @@
+# GEN-2 (deep-research lever #1, PROPER form): LoRA. GEN-1 showed frozen underfits (EGYPT 0.37) and
+# L2-SP misbehaves — because the backbone needs trainable CAPACITY. LoRA adds low-rank capacity on
+# attn qkv/proj while keeping base DINOv2 weights FROZEN (preserves OOD generalization). TEST: does
+# LoRA + E2 capture recipe keep EGYPT (appearance-OOD) LOW across epochs (no ep1 collapse like
+# unfreeze-2 E2-LODO 0.0406→0.96) AND gain capture? If yes, ONE model serves both prize axes.
+manifest: manifests/freuid_fid_upweighted.parquet
+backbone: vit_base_patch14_reg4_dinov2.lvd142m
+model_type: dtc
+img_size: 896
+batch_size: 24
+epochs: 4
+lr: 0.00005
+weight_decay: 0.05
+num_workers: 14
+val_fraction: 0.15
+holdout_by: doc_type
+holdout_groups: "EGYPT/DL"
+seed: 42
+out_dir: checkpoints/exp_gen2_lora_eg_lr5e5
+amp: true
+pretrained: true
+freeze_backbone: true
+unfreeze_blocks: 0
+lora_rank: 16
+lora_alpha: 32
+dtc_lambda: 0.5
+tracemix_p: 0.5
+heavy_recapture: true
+save_every_epoch: true

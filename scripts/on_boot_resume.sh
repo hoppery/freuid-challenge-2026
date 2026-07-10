@@ -1,6 +1,6 @@
 #!/bin/bash
-# Runs at @reboot (user crontab): resumes the aux dataset downloads and, once the GPU
-# is back after the reboot, auto-launches the Stage-1 improvement sweep (once-guarded).
+# Runs at @reboot (user crontab): resumes aux dataset downloads and, once CUDA is
+# available, auto-launches the Stage-1 improvement sweep (once-guarded).
 cd /home/hoppery/ijcai_freuid_chanllenge || exit 1
 unset PYTHONPATH
 sleep 30  # let the system/network settle after boot

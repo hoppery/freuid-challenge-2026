@@ -87,6 +87,51 @@ class DownscaleUpscale(A.ImageOnlyTransform):
         return cv2.resize(small, (w, h), interpolation=up_i)
 
 
+class SpectralBandPerturb(A.ImageOnlyTransform):
+    """FHAG — Frequency-band amplitude augmentation (E3 capture lever, 2026-06-18).
+
+    Print/screen RECAPTURE reshapes the image's radial AMPLITUDE spectrum: low-pass blur
+    attenuates high bands, sharpening/moiré injects mid-high energy, demosaicing shifts the
+    band ratios. A born-digital-trained detector can shortcut on this band-energy profile
+    (which differs systematically between the 99.97%-born-digital TRAIN set and the captured
+    PRIVATE test). Randomly rescaling per-band amplitude (PHASE kept, so layout/forensic
+    structure is preserved) at train time removes that shortcut → capture-invariant trace
+    features. Applied to BOTH classes (so 'recapture present' can't become a fraud cue).
+    Occasionally strongly attenuates the top band to mimic capture low-pass blur."""
+
+    def __init__(self, n_bands: int = 4, gain=(0.5, 1.6), hf_drop_p: float = 0.3, p: float = 0.4):
+        super().__init__(p=p)
+        self.n_bands = n_bands
+        self.gain = gain
+        self.hf_drop_p = hf_drop_p
+
+    def get_params(self):
+        gains = [random.uniform(*self.gain) for _ in range(self.n_bands)]
+        if random.random() < self.hf_drop_p:          # capture low-pass blur: kill the top band
+            gains[-1] = random.uniform(0.1, 0.4)
+        return {"gains": gains}
+
+    def apply(self, img, gains=None, **params):
+        if not gains:
+            return img
+        h, w = img.shape[:2]
+        cy, cx = h / 2.0, w / 2.0
+        yy, xx = np.mgrid[0:h, 0:w]
+        r = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
+        r = r / (r.max() + 1e-6)
+        edges = np.linspace(0.0, 1.0, self.n_bands + 1)
+        gain_field = np.ones((h, w), np.float32)
+        for b in range(self.n_bands):
+            hi = (r <= 1.0001) if b == self.n_bands - 1 else (r < edges[b + 1])
+            gain_field[(r >= edges[b]) & hi] = gains[b]
+        out = np.empty_like(img, dtype=np.float32)
+        for c in range(img.shape[2]):
+            f = np.fft.fftshift(np.fft.fft2(img[:, :, c].astype(np.float32)))
+            rec = np.fft.ifft2(np.fft.ifftshift(f * gain_field)).real
+            out[:, :, c] = rec
+        return np.clip(out, 0, 255).astype(np.uint8)
+
+
 def recapture_transforms(p_scale: float = 1.0):
     """Composite recapture-trace augmentation block (for use inside a larger Compose)."""
     return [
@@ -96,3 +141,8 @@ def recapture_transforms(p_scale: float = 1.0):
         A.GaussNoise(std_range=(0.02, 0.08), p=0.3 * p_scale),
         A.GaussianBlur(blur_limit=(3, 5), p=0.25 * p_scale),
     ]
+
+
+def fhag_transforms(p_scale: float = 1.0):
+    """FHAG frequency-band amplitude perturbation block (E3 capture lever)."""
+    return [SpectralBandPerturb(n_bands=4, gain=(0.5, 1.6), hf_drop_p=0.3, p=0.4 * p_scale)]
