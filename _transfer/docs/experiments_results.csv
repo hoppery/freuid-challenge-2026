@@ -1,5 +1,0 @@
-exp,status,backbone,model_type,train_aug,img_size,apcer@1%bpcer,audet,roc_auc
-exp_tail896_fold1,ok,vit_base_patch14_reg4_dinov2.lvd142m,rgb,medium,896,0.0238,0.0029,0.9971
-exp_tail896_fold0,ok,vit_base_patch14_reg4_dinov2.lvd142m,rgb,medium,896,0.0029,0.0003,0.9997
-exp_tail896_fold4,ok,vit_base_patch14_reg4_dinov2.lvd142m,rgb,medium,896,0.0013,0.0006,0.9994
-exp_tail896_fold3,ok,vit_base_patch14_reg4_dinov2.lvd142m,rgb,medium,896,0.0015,0.0008,0.9992

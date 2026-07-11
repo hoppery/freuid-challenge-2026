@@ -1,3 +1,0 @@
-exp,status,backbone,model_type,train_aug,img_size,apcer@1%bpcer,audet,roc_auc
-exp_heavyaug,NO_CKPT,,,,,,,
-exp_dinov2,NO_CKPT,,,,,,,

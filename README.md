@@ -11,7 +11,7 @@ The public and private test sets are, by the organizers' design, **different dis
 
 | Track | Test distribution | Our card |
 |-------|-------------------|----------|
-| **Public** leaderboard | born-digital renders, seen document types | field-tamper architecture-diversity ensemble (public rank-1) |
+| **Public** leaderboard | born-digital renders, seen document types | field-tamper architecture-diversity ensemble |
 | **Private** prize | **physically captured** + **2 unseen** document types | **CAPTURE card** (this Docker) |
 
 The prize is decided on the private (captured/physical) set, so the **Docker ships the CAPTURE card**.
