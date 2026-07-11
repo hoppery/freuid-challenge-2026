@@ -1,8 +1,6 @@
-# Keep the build context small: exclude everything heavy, then re-include only what the image needs.
-checkpoints/*
-!checkpoints/exp_e6_fda
-!checkpoints/exp_e6_fda1120
-!checkpoints/exp_e6reg_fda1120
+# Keep the build context small. Weights are NOT in the context anymore — the Dockerfile fetches the
+# 3 capture checkpoints from the repo's GitHub Release at build time (see Dockerfile WEIGHTS_BASE).
+checkpoints/
 data/
 _transfer/
 manifests/

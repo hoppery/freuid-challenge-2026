@@ -14,7 +14,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OMP_NUM_THREADS=4
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 python3-pip libglib2.0-0 && \
+        python3 python3-pip libglib2.0-0 curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -34,11 +34,25 @@ RUN pip3 install --no-cache-dir --break-system-packages \
         pyyaml==6.0.2 \
         pyarrow
 
-# --- source + the 3 CAPTURE-card checkpoints (embedded; ~1 GB total) ---
+# --- source ---
 COPY src/ /app/src/
 COPY scripts/docker_infer.py /app/scripts/docker_infer.py
-COPY checkpoints/exp_e6_fda/epoch2.pt        /app/checkpoints/exp_e6_fda/epoch2.pt
-COPY checkpoints/exp_e6_fda1120/epoch2.pt    /app/checkpoints/exp_e6_fda1120/epoch2.pt
-COPY checkpoints/exp_e6reg_fda1120/epoch1.pt /app/checkpoints/exp_e6reg_fda1120/epoch1.pt
+
+# --- the 3 CAPTURE-card checkpoints (~1 GB), i.e. the PRIVATE-track model.
+#     Weights exceed GitHub's 100 MB/file limit, so they are hosted as GitHub Release assets and fetched
+#     HERE at BUILD time (network is allowed during build) and baked into the image — so the RUN stage
+#     needs no network (--network none). SHA-256 is verified, so the build FAILS LOUDLY on any wrong,
+#     missing, or corrupt download. If your owner/repo/tag differ, override WEIGHTS_BASE at build:
+#       docker build --build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag> -t freuid-repro:local .
+ARG WEIGHTS_BASE=https://github.com/hoppery/freuid-challenge-2026/releases/download/weights-v1
+RUN set -eu; mkdir -p /app/checkpoints/exp_e6_fda /app/checkpoints/exp_e6_fda1120 /app/checkpoints/exp_e6reg_fda1120; \
+    curl -fSL "$WEIGHTS_BASE/e6_fda_ep2.pt"        -o /app/checkpoints/exp_e6_fda/epoch2.pt; \
+    curl -fSL "$WEIGHTS_BASE/e6_fda1120_ep2.pt"    -o /app/checkpoints/exp_e6_fda1120/epoch2.pt; \
+    curl -fSL "$WEIGHTS_BASE/e6reg_fda1120_ep1.pt" -o /app/checkpoints/exp_e6reg_fda1120/epoch1.pt; \
+    { echo "990703a5bee241747b527fb4b3aa202f94e5871c100ca6cd1d2cd51308580e48  /app/checkpoints/exp_e6_fda/epoch2.pt"; \
+      echo "c61d1bd76080e4946b187b4330339062ad9107fb8847f73864412d497982714f  /app/checkpoints/exp_e6_fda1120/epoch2.pt"; \
+      echo "e30b6bcfa7636cefa7ae633884ceed290cbee11bcedbff57a77413ffc35699d0  /app/checkpoints/exp_e6reg_fda1120/epoch1.pt"; \
+    } > /tmp/w.sha256; \
+    sha256sum -c /tmp/w.sha256; rm -f /tmp/w.sha256
 
 ENTRYPOINT ["python3", "/app/scripts/docker_infer.py"]

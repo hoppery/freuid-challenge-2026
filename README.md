@@ -35,6 +35,20 @@ diverse captured-genuine sources with heavy print-and-capture augmentation:
 Two ViT-B anchors (stable operating point) + a decorrelated RegNetY (architecture diversity, the
 lever that roughly halved our capture-proxy error) give the most seed-robust card.
 
+### Model weights (GitHub Release)
+
+The three checkpoints (~1 GB total) exceed GitHub's 100 MB/file limit, so they are hosted as
+**GitHub Release assets** and fetched by the `Dockerfile` at **build time** (SHA-256 verified) and
+baked into the image — so `docker run --network none` needs no network. Release `weights-v1` assets:
+
+| Release asset | → in image | SHA-256 (first 12) |
+|---------------|------------|--------------------|
+| `e6_fda_ep2.pt`        | `checkpoints/exp_e6_fda/epoch2.pt`        | `990703a5bee2` |
+| `e6_fda1120_ep2.pt`    | `checkpoints/exp_e6_fda1120/epoch2.pt`    | `c61d1bd76080` |
+| `e6reg_fda1120_ep1.pt` | `checkpoints/exp_e6reg_fda1120/epoch1.pt` | `e30b6bcfa763` |
+
+If your fork uses a different owner/repo/tag, pass `--build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag>`.
+
 ## Environment
 
 Python ≥ 3.11. Pinned versions used for training and evaluation (see `Dockerfile`):
