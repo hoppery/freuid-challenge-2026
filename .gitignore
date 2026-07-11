@@ -46,8 +46,6 @@ reports/
 /submission*.csv
 /*.csv
 docs/presentation/
-docs/superpowers/
-.claude/
 _transfer/checkpoints/
 _transfer/.reports/
 _transfer/wandb/
