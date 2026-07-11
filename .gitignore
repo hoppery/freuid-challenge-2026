@@ -60,3 +60,23 @@ _transfer/wandb/
 *.toc
 docs/technical_report.log
 docs/technical_report.out
+
+# Local-only experiment artifacts — kept on disk for our reference, NOT published to the repo.
+# (Already-tracked files inside these dirs, e.g. the 4 capture configs and the 5 repro scripts, stay tracked.)
+_transfer/
+configs/
+scripts/
+docs/iterations.md
+docs/experiments.md
+docs/experiments_results.csv
+docs/plan_v2.md
+docs/plan_v3.md
+docs/sota-research.md
+docs/winning-strategy.md
+docs/baseline-verification.md
+docs/datasets-sourcing.md
+docs/report.md
+docs/private_release_playbook.md
+docs/private_watch.log
+docs/aux-download-report.txt
+docs/technical_report.md
