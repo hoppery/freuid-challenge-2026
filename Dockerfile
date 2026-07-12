@@ -1,4 +1,5 @@
-# FREUID Challenge 2026 — reproducibility inference image (CAPTURE card, private track).
+# FREUID Challenge 2026 — reproducibility inference image (private track).
+# Runs one of two frozen cards, selected at build with --build-arg CARD=capture (default) | unseen.
 # Contract:  docker run --network none -v <flat_images>:/data:ro -v "$(pwd)/out":/submissions freuid-repro:local
 #   reads /data (flat dir of images) -> writes /submissions/submission.csv (id,label = P(fraud)).
 # All weights are BAKED IN and the model builds with pretrained=False, so NO network is used at run time.
