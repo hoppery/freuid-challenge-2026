@@ -121,6 +121,7 @@ FREUID_DATA_DIR=/path/to/images FREUID_OUT_DIR=/path/to/out \
 
 ```bash
 docker build -t freuid-repro:local .
+# GPU: if your host rejects `--gpus all` (e.g. a CDI setup), swap it for `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all` or `--device nvidia.com/gpu=all` (see the requirements table above).
 docker run --gpus all --network none \
   -v /path/to/flat/test/images:/data:ro \
   -v "$(pwd)/out":/submissions \

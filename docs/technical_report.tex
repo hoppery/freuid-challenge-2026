@@ -61,8 +61,8 @@
 }
 
 % --- template identity fields ---
-\newcommand{\teamname}{ETRI\_MobilityAI}
-\newcommand{\kaggleteam}{ETRI\_MobilityAI}
+\newcommand{\teamname}{MobilityAI}
+\newcommand{\kaggleteam}{MobilityAI}
 \newcommand{\contactemail}{syong.an@etri.re.kr}
 \newcommand{\reportdate}{July 2026}
 
@@ -85,21 +85,20 @@
 
 \begin{abstract}
 The FREUID Challenge 2026 requires a scalar fraud score in $[0,1]$ for each identity-document image, ranked
-by the FREUID Score (AuDET $+$ APCER@1\%BPCER; lower is better). The test data has a deliberate distribution shift. The public split (about $5\%$ of the test data) is
-born-digital. The private split (about $95\%$) decides the ranking. It is drawn from a hybrid of synthetic
-and physically captured images, and it includes two document types absent from training. A single
-submission is scored on both splits, and the private split dominates. The FREUID Score is a strict-tail
-metric, so it punishes any subpopulation on which a model collapses. We therefore submit one model that is
-built for robustness to captured and unseen-type content, not the model that tops the born-digital public
-leaderboard. The submitted model is a Double-Trace Consistency (DTC) capture ensemble. Each DTC detector
-adds a high-pass forensic branch to a pretrained RGB backbone and uses the trace twice: as a global feature
-and as a document-type-agnostic patch-consistency signal. The main gain comes from ensembling backbones
-that are decorrelated along two independent axes (architecture family and input resolution), not from extra
-seeds; this reduces a two-backbone baseline from $0.354$ to about $0.22$--$0.27$ on a leakage-free captured
-proxy. For comparison, a public-leaderboard-optimised ensemble reaches $0.00041$ on the public split but
-collapses to near chance on captured data, which is why we do not submit it. All training uses competition
-data and self-supervised augmentation only. Inference is a plain probability average with no test-time
-parameter fitting, packaged in a pinned container that runs fully offline.
+by the FREUID Score (AuDET $+$ APCER@1\%BPCER; lower is better). The test data is split by design: the
+public split (about $5\%$) is born-digital, while the private split (about $95\%$) decides the ranking and
+mixes synthetic and physically captured images, including two document types absent from training. A single
+submission is scored on both splits, and the FREUID Score heavily penalizes a model that collapses on part
+of the data. We therefore submit one model built for the captured and
+unseen-type private split, not one tuned for the public leaderboard. The submitted model is a Double-Trace
+Consistency (DTC) capture ensemble: each detector adds a high-pass forensic branch to a pretrained RGB
+backbone and uses the trace as a global feature and as a document-type-agnostic patch-consistency signal.
+The main gain comes from ensembling decorrelated backbones across architecture and resolution: adding a
+RegNetY-160 to two ViT-B detectors lowers the held-out captured-proxy score from $0.384$ to $0.227$. A
+public-leaderboard-tuned ensemble reaches $0.00041$ on the public split but is near chance on captured data,
+so we do not submit it. Training uses the competition data and public external datasets with self-supervised
+augmentation, never the test data; inference is a plain probability average in a pinned container that runs
+offline.
 \end{abstract}
 
 \noindent\textbf{Competition:} The FREUID Challenge 2026 (IJCAI-ECAI 2026), Kaggle
@@ -117,39 +116,43 @@ single task. The model outputs $P(\text{fraudulent})\in[0,1]$ for each image, sc
 The challenge splits the test data in a deliberate way. The \emph{public} split is about $5\%$ of the test
 data. It is born-digital and covers the five training document types. The \emph{private} split is about
 $95\%$ and decides the full ranking. It is drawn from a hybrid of synthetic and physically captured images,
-and it adds \textbf{two document types that are not in training}. A detector that only memorises the
-born-digital appearance of the seen types generalises poorly to the captured and unseen-type content. The
-organizers also caution against optimising the public leaderboard~\cite{freuid2026}.
+and it adds \textbf{two document types that are not in training}. A detector that only memorizes the
+born-digital appearance of the seen types generalizes poorly to the captured and unseen-type content. The
+organizers also caution against optimizing the public leaderboard~\cite{freuid2026}.
 
-A single submission is scored on both splits, and the private split decides the ranking. We cannot produce
-different predictions for the two splits, and per-image routing is unsafe (Section~\ref{sec:rejected}). We
-therefore submit one model. Section~\ref{sec:antagonism} shows why we do not submit the public-leaderboard
-winner: a model optimised for the born-digital split drops to near chance on captured data. Because the
-private split carries captured and unseen-type content, and because the metric punishes any subpopulation
-on which a model collapses, we submit a model built for robustness (our \textbf{private-best} model). We
+A single submission is scored on both splits. We cannot produce different predictions for the two splits,
+and per-image routing is unsafe (Section~\ref{sec:rejected}). We
+therefore submit one model. Section~\ref{sec:antagonism} shows why we do not submit the public-optimized
+model: it drops to near chance on captured data. Because the
+private split carries captured and unseen-type content, and because the metric heavily penalizes a model
+that collapses on part of the data, we submit a model built for robustness (our \textbf{private-best} model). We
 select it on a captured proxy, never on private labels.
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=1.3em,itemsep=1pt,topsep=2pt]
-  \item We show that a model which tops the born-digital public leaderboard collapses on captured data, so
-        public-leaderboard optimisation does not transfer to the private split that decides the ranking
-        (Section~\ref{sec:antagonism}).
+  \item We show that a model optimized for the born-digital public leaderboard collapses on captured data
+        (Section~\ref{sec:antagonism}); a strong public score therefore need not carry over to the captured,
+        unseen-type private split that decides the ranking.
   \item We propose the Double-Trace Consistency detector (DTC), a detector whose patch-consistency signal
         does not depend on the document type (Section~\ref{sec:dtc}, Fig.~\ref{fig:arch}).
-  \item We show a diversity-axis ensembling principle: decorrelation along architecture and resolution
-        improves both tracks, while extra seeds do not (Sections~\ref{sec:diversity}, \ref{sec:results}).
+  \item We show a diversity-axis ensembling principle: combining decorrelated architectures and resolutions
+        improves the submitted ensemble, with the architecture axis giving the larger gain
+        (Sections~\ref{sec:diversity}, \ref{sec:results}).
 \end{enumerate}
 
 \paragraph{Related work.}
-Manipulation and re-capture leave low-level traces that semantic features miss. High-pass residual streams
+Identity-document forgery and presentation-attack detection is an active benchmark area. FantasyID%
+~\cite{fantasyid} provides captured bona-fide cards with GenAI manipulations, close to this challenge's
+threat model. For synthetic (GenAI) content, adapter-based detectors on frozen vision-language features
+generalize across generators~\cite{fatformer}. Manipulation and re-capture leave low-level traces that
+semantic features miss. High-pass residual streams
 expose splicing and reprint artifacts. Central Difference Convolutions capture the gradient micro-texture
-used in face anti-spoofing~\cite{cdcn}. We build on the residual-trace idea, but we summarise it as a
-\emph{consistency} statistic. Self-blended images~\cite{sbi} synthesise manipulation traces without
+used in face anti-spoofing~\cite{cdcn}. We build on the residual-trace idea, but we summarize it as a
+\emph{consistency} statistic. Self-blended images~\cite{sbi} synthesize manipulation traces without
 manipulation labels. We adopt this idea for our self-supervised consistency target and for the field-tamper
 augmentation. We use self-supervised ViT features (DINOv2~\cite{dinov2}, ViT~\cite{vit}) together with
-convolutional families (ConvNeXt~V2~\cite{convnextv2}, RegNet~\cite{regnet}) through \texttt{timm}%
-~\cite{timm}. These families have different inductive biases, which we use for decorrelation. For
-robustness we use Fourier Domain Adaptation~\cite{fda} to randomise low-frequency appearance. Our
+a convolutional family (RegNet~\cite{regnet}) through \texttt{timm}~\cite{timm}. These families have different inductive biases, which we use for decorrelation. For
+robustness we use Fourier Domain Adaptation~\cite{fda} to randomize low-frequency appearance. Our
 ensembling builds on deep ensembles~\cite{deepensembles}; we add evidence on which type of diversity helps
 here.
 
@@ -158,15 +161,17 @@ here.
 
 \subsection{Overview and problem setting}
 \label{sec:setting}
-Let $x$ be an image and $y\in\{0,1\}$ its fraud label. We learn $f_\theta(x)=\sigma(\ell_\theta(x))\in[0,1]$
-and submit $f_\theta(x)$. Training uses the born-digital seen-type distribution $\mathcal{D}_{\text{tr}}$.
-Evaluation uses a public distribution $\mathcal{D}_{\text{pub}}\!\approx\!\mathcal{D}_{\text{tr}}$ and a
-private distribution $\mathcal{D}_{\text{prv}}$. The private distribution is shifted in two ways:
-acquisition (captured vs.\ born-digital) and label space (two unseen document types). The private
-distribution is not available, and it conflicts with $\mathcal{D}_{\text{pub}}$
-(Section~\ref{sec:antagonism}). We therefore do not train a single $\theta$. We train one model per
-distribution. Every model uses the same feed-forward pipeline: decode $\rightarrow$ resize with ImageNet
-normalisation $\rightarrow$ DTC detector $\rightarrow$ sigmoid $\rightarrow$ probability average.
+Let $x$ be an image and $y\in\{0,1\}$ its fraud label. Each detector produces a fraud logit $\ell(x)$ and a
+probability $\sigma(\ell(x))\in[0,1]$, where $\sigma$ is the sigmoid; the submitted score is the mean of the
+detectors' probabilities (Section~\ref{sec:calib}). The FREUID training data is born-digital and covers the
+seen document types; we augment it with external captured data (Section~\ref{sec:data}). Evaluation uses a
+public split $\mathcal{D}_{\text{pub}}$ (born-digital) and a private split $\mathcal{D}_{\text{prv}}$ shifted
+in acquisition (captured vs.\ born-digital) and label space (two unseen document types).
+$\mathcal{D}_{\text{prv}}$ is not available, and it conflicts with $\mathcal{D}_{\text{pub}}$
+(Section~\ref{sec:antagonism}): a model tuned for one split is weak on the other. We therefore submit one
+model built for the private split (Section~\ref{sec:models}). Every detector uses the same feed-forward
+pipeline: decode $\rightarrow$ resize with ImageNet normalization $\rightarrow$ DTC detector $\rightarrow$
+sigmoid.
 
 \begin{figure*}[t]
 \centering
@@ -226,51 +231,51 @@ private-best model averages three of them (Section~\ref{sec:diversity}).}
 Each detector (Fig.~\ref{fig:arch}) combines an ImageNet/DINOv2-pretrained RGB backbone with a forensic
 branch. The forensic branch applies a Gaussian high-pass residual and a small strided CNN
 (\texttt{TraceEncoder}) that keeps the spatial layout. It produces (i) a global trace feature and (ii) an
-$8\times8$ grid of L2-normalised patch trace embeddings $\{z_i\}$. We take the off-diagonal pairwise cosine
+$8\times8$ grid of L2-normalized patch trace embeddings $\{z_i\}$. We take the off-diagonal pairwise cosine
 similarities of $\{z_i\}$ and compute a 7-dimensional \textbf{consistency statistic} $s(x)$ (mean, standard
 deviation, minimum, low percentiles, and per-patch max-similarity summaries). The name comes from the two
 uses of the high-pass trace: the global trace feature and the patch-level consistency signal $s(x)$. A
-genuine capture, including
-a legitimately re-captured one, has a uniform trace. A locally edited and reprinted forgery does not. The
-statistic $s(x)$ does not depend on the document type, so an unseen-type genuine document is not flagged
-only because it looks unfamiliar. The fraud logit fuses
-$[\,\text{RGB feature}\,;\,\text{global trace}\,;\,s(x)\,]$ through an MLP
+design assumption is that a
+genuine capture, even a legitimately re-captured one, is uniformly traced, while a locally edited and
+reprinted forgery is not. Because $s(x)$ does not depend on the document type, an unseen-type genuine
+document should not be flagged merely for looking unfamiliar. The fraud logit $\ell(x)$ is an MLP over
+$[\,\text{RGB feature}\,;\,\text{global trace}\,;\,s(x)\,]$
 ($\text{Linear}\!\rightarrow\!512\!\rightarrow\!\text{GELU}\!\rightarrow\!\text{Dropout}(0.1)\!\rightarrow\!\text{Linear}\!\rightarrow\!1$).
 An auxiliary head on $s(x)$ is trained on self-supervised \texttt{TraceMix} coherent/incoherent labels,
 which are independent of the fraud label. The branch does not depend on the backbone, so any RGB family can
-host it.
+host it. Training minimizes the binary cross-entropy on the fraud logit plus $\lambda_{\text{dtc}}$ times the
+same loss on the auxiliary consistency logit, with $\lambda_{\text{dtc}}=0.5$. We optimize with AdamW and a cosine schedule for three epochs in mixed
+precision; the ViT-B backbones are frozen except their last two blocks, and the RegNetY backbone is fully
+fine-tuned (Appendix~\ref{app:hparams}).
 
-\subsection{Capture robustness by data, not architecture}
+\subsection{Capture robustness from data and augmentation}
 \label{sec:capture}
-Robustness to captured documents comes from \emph{data and augmentation}, not from architecture or loss
-changes (Section~\ref{sec:rejected}). The private-best models train on FREUID plus diverse real
-captured-genuine corpora (Section~\ref{sec:data}) with heavy print-and-capture augmentation and FDA domain
-randomisation~\cite{fda}. With probability $0.4$ we swap the low-frequency amplitude spectrum of an image
-with a donor of a \emph{different} document type ($\beta\in[0.01,0.08]$). This randomises the type
+In our experiments, robustness to captured documents came from \emph{data and augmentation} rather than from
+the architecture or loss changes we tried (Section~\ref{sec:rejected}). The private-best models train on FREUID plus diverse external
+captured corpora (Section~\ref{sec:data}) with heavy print-and-capture augmentation and FDA domain
+randomization~\cite{fda}. With probability $0.4$ we swap the low-frequency amplitude spectrum of an image
+with a donor of a \emph{different} document type ($\beta\in[0.01,0.08]$). This randomizes the type
 appearance and keeps the forensic phase.
 
 \subsection{Diversity-axis ensembling}
 \label{sec:diversity}
-A single capture detector is limited. The gain comes from averaging backbones that are \emph{decorrelated
-along independent axes}. We treat architecture family and input resolution as two separate diversity axes.
-Two ViT-B detectors at different resolutions are strongly correlated (Spearman $\rho\!\approx\!0.79$). A
-pure-CNN family at a different resolution is much less correlated ($\rho\!\approx\!0.5$--$0.7$). Adding such
-a member crosses both axes at once, and it gives the largest ensemble gain (Fig.~\ref{fig:ladder}). Extra
-\emph{seeds} of the same architecture and resolution ($\rho\!>\!0.99$) do not help. This principle applies
-to both tracks (Section~\ref{sec:results}).
+A single capture detector is limited. The gain comes from averaging backbones that are \emph{decorrelated}
+across two axes: input resolution and architecture family. The two ViT-B detectors at $896$ and $1120$\,px
+are strongly correlated (Spearman $\rho=0.79$ on the proxy). RegNetY-160 at $1120$\,px, a different
+architecture family, is less correlated with each ViT-B ($\rho=0.69$ and $0.73$) and gives the largest
+ensemble gain (Fig.~\ref{fig:ladder}).
 
 \subsection{The submitted model}
 \label{sec:models}
-We submit one model, the \textbf{private-best} ensemble: a probability average of three DTC detectors,
-selected on a captured proxy: ViT-B/14 DINOv2 at $896$ and $1120$\,px, and RegNetY-160 at $1120$\,px. The
-two ViT-B anchors stabilise the operating point, because their score is stable across seeds. The
-decorrelated RegNetY adds the ranking gain. Across three seeds, this configuration had the smallest
-variance among the candidates. This is the model shipped in the reproducibility container.
+We submit one model, the \textbf{private-best} ensemble: a probability average of three DTC detectors
+selected on the captured proxy, ViT-B/14 DINOv2 at $896$ and $1120$\,px and RegNetY-160 at $1120$\,px.
+RegNetY-160 is the strongest single detector on the proxy ($0.264$) and the least correlated with the two
+ViT-B detectors, so it contributes the largest ensemble gain (Section~\ref{sec:private-abl}). This is the
+model shipped in the reproducibility container.
 
-For analysis we also build a \textbf{public-best} ensemble that we do \emph{not} submit: a diversity-axis
-ensemble (ViT-L, ConvNeXt~V2, ViT-Giant across resolutions) with a \emph{field-tamper} augmentation that
-targets born-digital tampering. It tops the public leaderboard but collapses on captured data
-(Section~\ref{sec:antagonism}), so it is a reference, not our submission.
+As a reference only, we also build a \textbf{public-best} ensemble with a field-tamper augmentation. It
+reaches a low public score but collapses on captured data (Section~\ref{sec:antagonism}), so we do not
+submit it.
 
 \subsection{Score calibration}
 \label{sec:calib}
@@ -282,32 +287,32 @@ gives exactly one finite score in $[0,1]$.
 \section{Data}
 \label{sec:data}
 We use the official FREUID \texttt{train/} images and \texttt{train.csv} metadata (Kaggle competition
-\texttt{the-freuid-challenge-2026-ijcai-ecai}). The private-best models also train on diverse
-\emph{captured-genuine} corpora (moderate upweight, no external fraud labels): MIDV-500~\cite{midv500},
-MIDV-2019, MIDV-Holo, MIDV-2020, and BID (Brazilian CNH/RG/CPF photographs). We combine these with FREUID
-into a single manifest. FantasyID, a public research dataset of fantasy ID cards (Idiap), is held out as a leakage-free
-\emph{captured proxy}. It is a separate corpus, so we never train on it; we use it only for model selection.
-Its composition is described in the Validation paragraph below. All corpora are used under their public
-research licenses, and the pretrained weights under their upstream licenses.
+\texttt{the-freuid-challenge-2026-ijcai-ecai}). The private-best models also train on external
+data, combined with FREUID into a single manifest. Four corpora contribute \emph{genuine} captured documents
+only: MIDV-500~\cite{midv500}, MIDV-2019~\cite{midv2019}, MIDV-Holo~\cite{midvholo}, and
+BID~\cite{bid} (Brazilian CNH/RG/CPF photographs). FantasyID~\cite{fantasyid}
+(Idiap), a dataset of fantasy ID cards, contributes both captured-genuine images and GenAI attack images
+(face-swap and text edits), so it also adds externally labeled fraud examples. All corpora are used under
+their public research licenses, and the pretrained weights under their upstream licenses.
 
 \paragraph{Validation.} The public leaderboard reflects the born-digital distribution, so it does not
-predict the captured private set (Section~\ref{sec:antagonism}). We therefore select the private-best model
-on a captured proxy, the FantasyID test split: 1{,}295 images across six document styles (465 genuine cards
-that are physically printed and photographed, and 830 GenAI-manipulated versions with face-swap or text
-edits). We chose FantasyID because it matches the two stated properties of the private test
-(Section~\ref{sec:intro}): its genuine cards are captured rather than born-digital, and its document styles
-differ from the five FREUID training types. We do not claim that FantasyID and the private set share the
-same distribution, and FantasyID is not an organizer-recommended proxy; its attack types in particular may
-differ from the private test. We therefore use it only for model selection and read its FREUID score as an
-indicative lower bound. We hold out a random $10\%$ split of the training manifest only for logging. The
-private set is not available at submission time, so proxy selection is the only option.
+predict the captured private set (Section~\ref{sec:antagonism}). For model selection we use a held-out
+FantasyID subset of $1{,}295$ images ($465$ genuine captured cards and $830$ GenAI-manipulated versions). It
+has no image overlap with the training data, so selection is not leaked. We use FantasyID because its
+captured genuine cards and non-training document styles match the two stated properties of the private test
+(Section~\ref{sec:intro}). However, FantasyID is also a training source, so this is an
+\emph{in-distribution} held-out estimate, not a cross-corpus test. It measures generalization to unseen
+FantasyID images and likely overestimates performance on a genuinely new corpus such as the private set. FantasyID is not an organizer-recommended proxy, and we do not claim it shares the private
+set's distribution. We read its FREUID score as an indicative held-out number, not a lower bound. We also
+hold out a random $10\%$ split of the training manifest for logging. The private set is not available at
+submission time, so proxy selection is the only option.
 
 \section{Inference}
 \label{sec:inference}
 The container entrypoint indexes a flat directory of images. It runs the three checkpoints (build with
 \texttt{pretrained=False}, load embedded weights, forward pass, sigmoid) and writes the per-image
 probability average as \texttt{id,label}. Test-time preprocessing is a plain resize to the native
-resolution with ImageNet normalisation. The deployed models use no tiling, no multi-crop, and no test-time
+resolution with ImageNet normalization. The deployed models use no tiling, no multi-crop, and no test-time
 augmentation. The device is CUDA if available, else CPU. The per-model batch size follows the training
 config. Unreadable images are assigned $0.5$. The exact command is in Section~\ref{sec:repro}.
 
@@ -316,7 +321,7 @@ config. Unreadable images are assigned $0.5$. The exact command is in Section~\r
 
 \subsection{Main results}
 Table~\ref{tab:results} reports the submitted private-best model and the public-best reference on both
-splits. The private-best model reduces a two-backbone baseline by about half on the captured proxy, and it
+splits. The private-best model reduces a two-ViT-B baseline from $0.384$ to $0.227$ on the captured proxy, and it
 stays well above chance on born-digital data. The public-best reference reaches a public FREUID Score of
 $0.00041$ (with three models; $0.00039$ for the full ensemble), but it collapses on captured data, so we do
 not submit it.
@@ -327,28 +332,28 @@ not submit it.
 \setlength{\tabcolsep}{6pt}
 \caption{Main results. FREUID Score $\downarrow$ (lower is better). We submit the private-best model; the
 public-best is a public-leaderboard reference we do not submit, because it collapses on captured data
-(Fig.~\ref{fig:antagonism}). Captured-proxy figures are a small cross-corpus lower bound.}
+(Fig.~\ref{fig:antagonism}). Captured-proxy figures are a small in-distribution held-out estimate.}
 \label{tab:results}
 \begin{tabular}{lcc}
 \toprule
 Model & Public LB $\downarrow$ & Captured proxy $\downarrow$ \\
 \midrule
-Private-best (submitted)               & $0.169$          & \textbf{${\approx}0.22$--$0.27$} \\
+Private-best (submitted)               & $0.169$          & \textbf{$0.227$} \\
 Public-best (reference, not submitted) & \textbf{0.00041} & ${\approx}0.99$\,{\footnotesize(chance)} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Each model works on only one distribution}
+\subsection{Public and captured performance}
 \label{sec:antagonism}
 Fig.~\ref{fig:antagonism} plots each model on both distributions. The two lines cross. The public-best
 model is strong on born-digital data ($0.00041$) but at chance on captured data (about $0.99$; a random
-classifier scores about $0.99$ on APCER@1\%BPCER). The reason is that the public-best model relies on
-born-digital forensic cues, such as fine editing traces and JPEG discontinuities. Print-and-capture
-re-acquisition overwrites these cues with a uniform capture signature, so they no longer separate genuine
-from fraud. The private-best model shows the opposite order. The gap between the two models is about
-$400\times$ on the public set, and the order fully reverses on the captured proxy. A single model therefore
-cannot serve both distributions, and the public score does not predict private performance. The
+classifier scores about $0.99$ on APCER@1\%BPCER). A likely reason is that the public-best model relies on
+born-digital forensic cues (fine editing traces, JPEG discontinuities) that print-and-capture re-acquisition
+overwrites, so they no longer separate genuine from fraud. The private-best model shows the opposite order.
+The gap between the two models is about $400\times$ on the public set, and the order fully reverses on the
+captured proxy. A single model therefore cannot serve both distributions well, and the public score does not
+predict captured performance. The
 private-best model stays well above chance on born-digital data ($0.169$), so it is our submitted model: it
 does not collapse on either split, and it is the stronger choice on the captured and unseen-type content
 that the private split contains and the public split does not.
@@ -365,11 +370,11 @@ that the private split contains and the public split does not.
   legend pos=south east,
 ]
 \addplot[cpub, line width=1.2pt, mark=*, mark size=2.2pt] coordinates {(0,0.00041) (1,0.99)};
-\addplot[cpriv, line width=1.2pt, mark=square*, mark size=2.2pt] coordinates {(0,0.169) (1,0.245)};
+\addplot[cpriv, line width=1.2pt, mark=square*, mark size=2.2pt] coordinates {(0,0.169) (1,0.227)};
 \node[cpub,  font=\scriptsize, anchor=south west] at (axis cs:0,0.00041) {0.00041};
 \node[cpub,  font=\scriptsize, anchor=north east] at (axis cs:1,0.99) {0.99 (chance)};
 \node[cpriv, font=\scriptsize, anchor=south east] at (axis cs:0,0.169) {0.169};
-\node[cpriv, font=\scriptsize, anchor=west] at (axis cs:1,0.245) {$\approx$0.22--0.27};
+\node[cpriv, font=\scriptsize, anchor=west] at (axis cs:1,0.227) {0.227};
 \legend{public-best, private-best}
 \end{axis}
 \end{tikzpicture}
@@ -378,88 +383,58 @@ that the private split contains and the public split does not.
 \label{fig:antagonism}
 \end{figure}
 
-\subsection{Diversity axes beat seeds (measured on the public leaderboard)}
-\label{sec:public-abl}
-The diversity-axis principle is easiest to measure on the public leaderboard, where the labels are real.
-Fig.~\ref{fig:progression} traces the public FREUID Score as we add each component to the public-best
-reference. The field-tamper augmentation gives the first large drop. Adding architecture diversity, then
-resolution diversity, and then an axis-crossing member each lowers the score further. Seed replicas (not
-shown) do not change the score. We apply the same principle to the submitted model
-(Section~\ref{sec:private-abl}).
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{axis}[paperaxis, ymode=log,
-  xmin=0.5, xmax=5.5, xtick={1,2,3,4,5},
-  xticklabels={ViT-B DTC, +field-tamper, +arch.\ div., +resolution, +axis ens.},
-  xticklabel style={rotate=25, anchor=east, font=\scriptsize},
-  ymin=2e-4, ymax=0.2, ylabel={Public FREUID $\downarrow$},
-  ytick={1e-3,1e-2,1e-1},
-]
-\addplot[cpub, line width=1.1pt, mark=*, mark size=2pt,
-  point meta=explicit symbolic, nodes near coords,
-  every node near coord/.append style={font=\scriptsize, color=axgray, anchor=south west}]
-  coordinates {(1,0.0798)[0.0798] (2,0.0103)[0.0103] (3,0.00131)[0.00131]
-               (4,0.00072)[0.00072] (5,0.00039)[0.00039]};
-\end{axis}
-\end{tikzpicture}
-\caption{The diversity-axis principle on the public-best reference. Each added component lowers the public
-FREUID Score. The full ensemble reaches $0.00039$; the three-model version scores $0.00041$. This model is
-not submitted.}
-\label{fig:progression}
-\end{figure}
-
 \subsection{Ensemble ladder (submitted model)}
 \label{sec:private-abl}
-Fig.~\ref{fig:ladder} shows the same principle on the submitted model, measured on the captured proxy. We
-start from two correlated ViT-B detectors. Each new decorrelated family lowers the proxy FREUID Score. The
-axis-crossing member (RegNetY-160 at $1120$\,px, a new family and a new resolution) gives the final step and
-reduces the two-ViT baseline by about half.
+Fig.~\ref{fig:ladder} shows the diversity-axis principle on the submitted model, measured on the captured
+proxy. A single ViT-B detector scores $0.427$. Adding a second ViT-B at a different resolution (correlated)
+gives a modest gain to $0.384$. Adding the decorrelated RegNetY-160 (a different architecture family) gives
+the large step to $0.227$, the deployed three-model card.
 
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}
 \begin{axis}[paperaxis,
-  xmin=0.5, xmax=5.5, xtick={1,2,3,4,5},
-  xticklabels={$2{\times}$ViT-B, +ConvNeXt-V2, +EffNetV2, +RegNetY@896, +RegNetY@1120},
-  xticklabel style={rotate=25, anchor=east, font=\scriptsize},
-  ymin=0.18, ymax=0.38, ylabel={Captured-proxy FREUID $\downarrow$},
+  xmin=0.5, xmax=3.5, xtick={1,2,3},
+  xticklabels={ViT-B@896, +ViT-B@1120, +RegNetY@1120},
+  xticklabel style={rotate=20, anchor=east, font=\scriptsize},
+  ymin=0.18, ymax=0.47, ylabel={Captured-proxy FREUID $\downarrow$},
 ]
-\addplot[cpriv, line width=1.1pt, mark=square*, mark size=2pt,
+\addplot[cpriv, line width=1.1pt, mark=square*, mark size=2.5pt,
   point meta=explicit symbolic, nodes near coords,
   every node near coord/.append style={font=\scriptsize, color=axgray, anchor=south west}]
-  coordinates {(1,0.354)[0.354] (2,0.333)[0.333] (3,0.285)[0.285]
-               (4,0.279)[0.279] (5,0.245)[$\approx$0.22--0.27]};
+  coordinates {(1,0.427)[0.427] (2,0.384)[0.384] (3,0.227)[0.227]};
 \end{axis}
 \end{tikzpicture}
-\caption{Ensemble ladder for the submitted model. Adding decorrelated architecture/resolution members lowers
-the captured-proxy FREUID Score. The last point is a range. The plotted value is its midpoint.}
+\caption{Ensemble ladder for the submitted three-model card (captured proxy, probability average). A second
+ViT-B at a new resolution gives a small gain; the decorrelated RegNetY-160 gives the large step to $0.227$.}
 \label{fig:ladder}
 \end{figure}
 
-\subsection{Approaches evaluated and rejected}
+\subsection{Rejected approaches}
 \label{sec:rejected}
 We also tested approaches that did not help, and we dropped them. Submitting the public-best ensemble on
 captured data was capture-blind (about chance). Adding MIDV-2020 to the capture mix gave no gain, because
 of a distribution mismatch. A learned domain router keyed on framing and context, and it misrouted cropped
-captured images. Warm-starting the capture model from the public-best checkpoint gave a worse peak, because
-the fraud-specific features do not survive re-capture. Architecture and loss levers on the capture axis
+captured images. Warm-starting the capture model from the public-best checkpoint gave a worse peak than
+training from scratch. Architecture and loss levers on the capture axis
 (focal loss~\cite{focal}, CDC convolutions~\cite{cdcn}, MixStyle~\cite{mixstyle}) did worse than the
 data-diversity recipe.
 
 \section{Reproducibility}
 \label{sec:repro}
-The reproducibility container ships the private-best model. The weights are baked into the image, and the
-models build with \texttt{pretrained=False}. The container therefore runs with \texttt{--network none} (no
-runtime downloads) and writes only to \texttt{/submissions}.
+The reproducibility container ships the private-best model. The three checkpoints are fetched from a GitHub
+Release at build time (SHA-256 verified) and baked into the image, and the models build with
+\texttt{pretrained=False}. The container therefore runs with \texttt{--network none} (no runtime downloads)
+and writes only to \texttt{/submissions}.
 \begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
   \item \textbf{Environment (pinned):} \texttt{torch==2.12.0} (CUDA 13), \texttt{timm==1.0.27},
-        \texttt{albumentations==2.0.8}, \texttt{opencv-python-headless==4.13.0}, \texttt{numpy==2.4.6},
+        \texttt{albumentations==2.0.8}, \texttt{opencv-python-headless==4.13.0.92}, \texttt{numpy==2.4.6},
         \texttt{pandas==3.0.3}, \texttt{scipy==1.17.1}, \texttt{scikit-learn==1.9.0},
-        \texttt{pillow==12.2.0}, \texttt{pyyaml==6.0.2}, \texttt{pyarrow}; Python $\geq 3.11$.
+        \texttt{pillow==12.2.0}, \texttt{pyyaml==6.0.3}, \texttt{pyarrow==24.0.0}; Python $\geq 3.11$.
   \item \textbf{Hardware / runtime:} training on $2\times$ NVIDIA RTX PRO 6000 (Blackwell, 96\,GB);
-        inference uses a single GPU. The CPU fallback works but is slow.
+        inference uses a single GPU (about $1.6$\,h for the three models over the full test set on our
+        hardware; CPU fallback works but is slow). The base image targets CUDA 13; on a host with an older
+        driver, adjust the base tag and the \texttt{torch} index (weights are torch-version portable).
   \item \textbf{Randomness:} global seed $42$. CUDA/cuDNN and AMP add minor non-determinism, within the
         proxy's seed noise.
   \item \textbf{Repository:} \url{https://github.com/hoppery/freuid-challenge-2026} (MIT license; the frozen
@@ -470,8 +445,8 @@ runtime downloads) and writes only to \texttt{/submissions}.
 {\footnotesize
 \begin{verbatim}
 docker build -t freuid-repro:local .
-docker run --network none \
-  -v <flat_images>:/data:ro \
+docker run --gpus all --rm --network none \
+  -v /path/to/flat/test/images:/data:ro \
   -v "$(pwd)/out":/submissions \
   freuid-repro:local        # -> out/submission.csv  (id,label)
 \end{verbatim}}
@@ -505,7 +480,7 @@ LR schedule, 3 epochs, seed 42, AMP, DTC consistency weight $\lambda_{\text{dtc}
 \toprule
 Hyperparameter & ViT-B @896 & ViT-B @1120 & RegNetY-160 @1120 \\
 \midrule
-Backbone      & \multicolumn{2}{c}{\texttt{vit\_base\_patch14\_reg4\_dinov2}} & \texttt{regnety\_160.tv2\_in1k} \\
+Backbone      & \multicolumn{2}{c}{\texttt{vit\_base\_patch14\_reg4\_dinov2.lvd142m}} & \texttt{regnety\_160.tv2\_in1k} \\
 Image size    & 896 & 1120 & 1120 \\
 Batch size    & 24  & 12   & 8 \\
 Learning rate & $1{\times}10^{-4}$ & $1{\times}10^{-4}$ & $5{\times}10^{-5}$ \\
@@ -519,7 +494,7 @@ Seed          & 42 & 42 & 42 \\
 
 \section{Additional ablations}
 \label{app:ablations}
-See Figs.~\ref{fig:progression} and~\ref{fig:ladder} (diversity-axis contributions on each track) and the
+See Fig.~\ref{fig:ladder} (the diversity-axis contribution on the submitted model) and the
 rejected-approaches list in Section~\ref{sec:rejected}. Further ablations (capture-source diversity and
 resolution sweeps) are available in the repository notes.
 
