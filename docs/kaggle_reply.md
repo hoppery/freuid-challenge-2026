@@ -12,7 +12,7 @@ FREUID Challenge 2026 - Reproducibility Package
 ---
 
 Team name: MobilityAI
-Kaggle usernames: [comma-separated Kaggle handles of all team members]
+Kaggle usernames: suyongan
 Final Kaggle submission: [label / date-time as shown on Kaggle]
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
@@ -22,7 +22,7 @@ Technical report (PDF): https://github.com/hoppery/freuid-challenge-2026/blob/ma
 We confirm this repository at the stated commit reproduces our selected final
 submission and complies with the competition rules.
 
-Signed (team captain): [Kaggle username]
+Signed (team captain): suyongan
 Date (UTC): [YYYY-MM-DD]
 
 ---
