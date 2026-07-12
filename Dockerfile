@@ -55,11 +55,9 @@ RUN set -eu; mkdir -p /app/checkpoints/exp_e6_fda /app/checkpoints/exp_e6_fda112
     } > /tmp/w.sha256; \
     sha256sum -c /tmp/w.sha256; rm -f /tmp/w.sha256
 
-# Run as non-root uid 1000, matching the organizer's reference container. The Ubuntu 24.04 base already
-# ships a non-root user at uid 1000, so we reuse it (creating one fails: "UID 1000 is not unique").
-# Weights/source are world-readable; the container writes only to the /submissions mount, which also
-# enforces the "no writes outside /submissions" verification requirement.
-ENV HOME=/home/ubuntu
-USER 1000
-
+# Runs as root (the image default). The entrypoint writes ONLY to the /submissions mount, which
+# satisfies the "no writes outside /submissions" requirement; and root can always read the mounted
+# read-only /data regardless of how the evaluation host owns/permissions those files. (A non-root uid
+# can silently fail to read a restrictively-permissioned /data mount and then emit all-fallback scores,
+# which is a worse, silent failure than any benefit of dropping privileges here.)
 ENTRYPOINT ["python3", "/app/scripts/docker_infer.py"]

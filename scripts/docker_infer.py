@@ -20,6 +20,11 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 
+# DataLoader workers pass loaded image tensors to the main process via shared memory. Containers
+# default to a 64 MB /dev/shm, which overflows at these resolutions ("No space left on device").
+# 'file_system' backs shared tensors with temp files instead, so it works under the default shm.
+torch.multiprocessing.set_sharing_strategy("file_system")
+
 from freuid.config import Config
 from freuid.data.transforms import build_transforms
 from freuid.models.classifier import build_classifier

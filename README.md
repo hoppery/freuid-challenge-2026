@@ -101,7 +101,7 @@ FREUID_DATA_DIR=/path/to/images FREUID_OUT_DIR=/path/to/out \
 
 ```bash
 docker build -t freuid-repro:local .
-docker run --network none \
+docker run --gpus all --network none \
   -v /path/to/flat/test/images:/data:ro \
   -v "$(pwd)/out":/submissions \
   freuid-repro:local
@@ -110,10 +110,18 @@ docker run --network none \
 
 - `/data` — flat directory of images (`.jpeg .jpg .png .webp .bmp .tif .tiff`); `id` = filename stem.
 - `/submissions/submission.csv` — one row per input image, `label` ∈ [0, 1] (higher = more fraudulent).
+- **GPU**: pass **`--gpus all`** so inference runs on the GPU (a single A100 finishes in about 3 h; CPU
+  works but is far slower). If your Docker/NVIDIA-toolkit setup does not accept `--gpus all`, use the
+  equivalent for your host, e.g. `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`, or on a CDI setup
+  `--device nvidia.com/gpu=all`. The entrypoint auto-detects the GPU and falls back to CPU if none is given.
+- **CUDA / driver**: the image is built for CUDA 13 (`torch` cu130), which needs a host NVIDIA driver
+  **≥ 580.65.06** to use the GPU. On an older driver the container silently runs on CPU. If your eval
+  host uses an older driver/CUDA, change the base image tag and the `torch` `--index-url` in the
+  `Dockerfile` to match (checkpoint weights are torch-version portable).
+- **No `--shm-size` needed**: the data loader uses a file-system tensor-sharing strategy, so it runs
+  under Docker's default 64 MB `/dev/shm`.
 - Runs with **`--network none`**: all weights are baked into the image and models build with
   `pretrained=False`, so there are **no runtime downloads**. The container writes only to `/submissions`.
-- If the evaluation host's CUDA differs from the build host's, adjust the base image tag and the
-  `torch` `--index-url` in the `Dockerfile` accordingly (checkpoint weights are torch-version portable).
 
 ## Repository layout
 
