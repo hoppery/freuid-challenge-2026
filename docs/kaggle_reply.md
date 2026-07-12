@@ -16,7 +16,7 @@ Kaggle usernames: suyongan
 Final Kaggle submission: [label / date-time as shown on Kaggle]
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
-Commit SHA: c28806d51b4f3600f6c837a7f61ac2a6d3c6d2e3
+Commit SHA: 497d7704a97e2dafb93a791f95b585ec8c868d54
 Technical report (PDF): https://github.com/hoppery/freuid-challenge-2026/blob/master/docs/technical_report.pdf
 
 We confirm this repository at the stated commit reproduces our selected final
@@ -29,11 +29,10 @@ Date (UTC): [YYYY-MM-DD]
 
 ## Fill-in notes (do NOT post these)
 - **Repository URL**: the public GitHub repo after `git push` (target `github.com/hoppery/freuid-challenge-2026`).
-- **Commit SHA**: FILLED to `c28806d51b4f3600f6c837a7f61ac2a6d3c6d2e3`, the frozen code/Docker/weights-manifest
-  commit. The rules require the solution/weights in the public repo by 2026-07-13 and forbid weight/architecture/
-  training changes after; documentation/packaging commits after are allowed if weights are unchanged. This SHA
-  builds the exact submitted Docker. (Optional: if you post after the technical-report session pushes its final
-  doc commit, you may instead declare that later HEAD — `git rev-parse HEAD` — it builds the identical Docker.)
+- **Commit SHA**: FILLED to `497d7704a97e2dafb93a791f95b585ec8c868d54`, the final frozen commit (code + Docker +
+  weights manifest + finalized technical report). The rules require the solution/weights in the public repo by
+  2026-07-13 and forbid weight/architecture/training changes after; documentation/packaging commits after are
+  allowed if weights are unchanged. This SHA builds the exact submitted Docker and contains the final report.
 - **Technical report URL**: already set to the GitHub blob URL of `docs/technical_report.pdf` on `master`
   (renders in-browser). Swap to a SHA permalink if you prefer to pin it to the exact frozen commit.
 - **Final Kaggle submission**: label/date-time of the selected final submission as shown on Kaggle.
