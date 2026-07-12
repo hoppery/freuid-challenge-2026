@@ -55,10 +55,11 @@ RUN set -eu; mkdir -p /app/checkpoints/exp_e6_fda /app/checkpoints/exp_e6_fda112
     } > /tmp/w.sha256; \
     sha256sum -c /tmp/w.sha256; rm -f /tmp/w.sha256
 
-# Run as a non-root user (uid 1000), matching the organizer's reference container. The baked weights
-# and source are world-readable; the container writes only to the /submissions mount, so this also
+# Run as non-root uid 1000, matching the organizer's reference container. The Ubuntu 24.04 base already
+# ships a non-root user at uid 1000, so we reuse it (creating one fails: "UID 1000 is not unique").
+# Weights/source are world-readable; the container writes only to the /submissions mount, which also
 # enforces the "no writes outside /submissions" verification requirement.
-RUN useradd --create-home --uid 1000 runner
-USER runner
+ENV HOME=/home/ubuntu
+USER 1000
 
 ENTRYPOINT ["python3", "/app/scripts/docker_infer.py"]
