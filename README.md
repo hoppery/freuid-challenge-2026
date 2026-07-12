@@ -52,7 +52,7 @@ Full SHA-256 in `WEIGHTS.md`. If your fork uses a different owner/repo/tag, pass
 ## Environment
 
 Python ≥ 3.11. Pinned versions used for training and evaluation (see `Dockerfile`):
-`torch==2.12.0` (CUDA 13), `timm==1.0.27`, `albumentations==2.0.8`, `opencv-python-headless==4.13.0`,
+`torch==2.12.0` (CUDA 13), `timm==1.0.27`, `albumentations==2.0.8`, `opencv-python-headless==4.13.0.92`,
 `numpy==2.4.6`, `pandas`, `scipy`, `scikit-learn`, `pillow`, `pyyaml`, `pyarrow`.
 
 ```bash

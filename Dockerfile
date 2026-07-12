@@ -25,14 +25,14 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 RUN pip3 install --no-cache-dir --break-system-packages \
         timm==1.0.27 \
         albumentations==2.0.8 \
-        opencv-python-headless==4.13.0 \
+        opencv-python-headless==4.13.0.92 \
         "numpy==2.4.6" \
         pandas==3.0.3 \
         scipy==1.17.1 \
         scikit-learn==1.9.0 \
         pillow==12.2.0 \
-        pyyaml==6.0.2 \
-        pyarrow
+        pyyaml==6.0.3 \
+        pyarrow==24.0.0
 
 # --- source ---
 COPY src/ /app/src/
