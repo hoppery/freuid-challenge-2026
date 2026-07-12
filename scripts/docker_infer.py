@@ -12,18 +12,15 @@ Device: CUDA if available, else CPU. Robust to unreadable images (assigned 0.5, 
 """
 from __future__ import annotations
 import os
+import queue
 import sys
+import threading
 
 import cv2
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader
-
-# DataLoader workers pass loaded image tensors to the main process via shared memory. Containers
-# default to a 64 MB /dev/shm, which overflows at these resolutions ("No space left on device").
-# 'file_system' backs shared tensors with temp files instead, so it works under the default shm.
-torch.multiprocessing.set_sharing_strategy("file_system")
+from torch.utils.data import Dataset
 
 from freuid.config import Config
 from freuid.data.transforms import build_transforms
@@ -81,6 +78,38 @@ class _FlatDataset(Dataset):
         return x, str(r["image_id"]), True
 
 
+def _threaded_batches(ds, batch_size, prefetch=6):
+    """Yield (batch_tensor, ids, ok_flags), decoding images in a background THREAD so decode overlaps
+    GPU compute. Threads share memory, so this needs no /dev/shm — a multiprocessing DataLoader
+    overflows the container's default 64 MB shm at these resolutions regardless of sharing strategy,
+    and cv2/torch release the GIL during decode/compute so a single producer thread hides the decode."""
+    q: queue.Queue = queue.Queue(maxsize=prefetch)
+
+    def produce():
+        xs, ids, oks = [], [], []
+        try:
+            for i in range(len(ds)):
+                x, _id, ok = ds[i]
+                xs.append(x); ids.append(_id); oks.append(ok)
+                if len(xs) == batch_size:
+                    q.put((torch.stack(xs), ids, oks)); xs, ids, oks = [], [], []
+            if xs:
+                q.put((torch.stack(xs), ids, oks))
+        except Exception as e:  # surface a decode/collate error to the consumer
+            q.put(e)
+        finally:
+            q.put(None)
+
+    threading.Thread(target=produce, daemon=True).start()
+    while True:
+        item = q.get()
+        if item is None:
+            break
+        if isinstance(item, Exception):
+            raise item
+        yield item
+
+
 @torch.no_grad()
 def run_one(ckpt: str, df: pd.DataFrame) -> dict:
     ck = torch.load(ckpt, map_location=DEVICE, weights_only=False)
@@ -99,17 +128,13 @@ def run_one(ckpt: str, df: pd.DataFrame) -> dict:
     model.load_state_dict(ck["model"])
     model.eval()
 
-    nw = min(8, (os.cpu_count() or 2))
     ds = _FlatDataset(df, build_transforms("eval", cfg.img_size), cfg.img_size)
-    dl = DataLoader(ds, batch_size=max(1, cfg.batch_size), shuffle=False,
-                    num_workers=nw, pin_memory=(DEVICE == "cuda"))
     out = {}
-    for x, ids, ok in dl:
+    for x, ids, oks in _threaded_batches(ds, max(1, cfg.batch_size)):
         with torch.autocast(DEVICE, enabled=(cfg.amp and DEVICE == "cuda")):
             p = torch.sigmoid(model(x.to(DEVICE))).float().squeeze(1).cpu().numpy()
-        ok = ok.numpy() if hasattr(ok, "numpy") else np.asarray(ok)
         for j, i in enumerate(ids):
-            out[i] = float(p[j]) if bool(ok[j]) else np.nan
+            out[i] = float(p[j]) if bool(oks[j]) else np.nan
     del model
     if DEVICE == "cuda":
         torch.cuda.empty_cache()
