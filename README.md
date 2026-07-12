@@ -35,19 +35,37 @@ diverse captured-genuine sources with heavy print-and-capture augmentation:
 Two ViT-B anchors (stable operating point) + a decorrelated RegNetY (architecture diversity, the
 lever that roughly halved our capture-proxy error) give the most seed-robust card.
 
+### Two frozen cards (`--build-arg CARD=...`)
+
+Two candidate cards were trained and frozen before the code freeze; the one matching the private
+acquisition type is deployed after the private set is released (swapping cards is a *packaging* change,
+weights unchanged). The Docker default is the **capture** card.
+
+| `CARD` | ensemble | bet |
+|--------|----------|-----|
+| `capture` *(default)* | 3× DTC (ViT-B@896, ViT-B@1120, RegNetY@1120) | physically captured / physical private |
+| `unseen` | 2× FDA (ViT-L/14 DINOv2, ConvNeXt-V2-L), both @896 | born-digital + 2 unseen document types |
+
+```bash
+docker build -t freuid-repro:capture .                       # capture card (default)
+docker build --build-arg CARD=unseen -t freuid-repro:unseen . # unseen-FDA card
+```
+
 ### Model weights (GitHub Release)
 
-The three checkpoints (~1 GB total) exceed GitHub's 100 MB/file limit, so they are hosted as
-**GitHub Release assets** and fetched by the `Dockerfile` at **build time** (SHA-256 verified) and
-baked into the image — so `docker run --network none` needs no network. Release `weights-v1` assets:
+All checkpoints exceed GitHub's 100 MB/file limit, so they are hosted as **GitHub Release assets** and
+fetched by the `Dockerfile` at **build time** (SHA-256 verified) and baked into the image — so
+`docker run --network none` needs no network. Release `weights-v1` assets:
 
-| Release asset | → in image | SHA-256 (first 12) |
-|---------------|------------|--------------------|
-| `e6_fda_ep2.pt`        | `checkpoints/exp_e6_fda/epoch2.pt`        | `990703a5bee2` |
-| `e6_fda1120_ep2.pt`    | `checkpoints/exp_e6_fda1120/epoch2.pt`    | `c61d1bd76080` |
-| `e6reg_fda1120_ep1.pt` | `checkpoints/exp_e6reg_fda1120/epoch1.pt` | `e30b6bcfa763` |
+| `CARD` | Release asset | → in image | SHA-256 (first 12) |
+|--------|---------------|------------|--------------------|
+| capture | `e6_fda_ep2.pt`        | `checkpoints/exp_e6_fda/epoch2.pt`        | `990703a5bee2` |
+| capture | `e6_fda1120_ep2.pt`    | `checkpoints/exp_e6_fda1120/epoch2.pt`    | `c61d1bd76080` |
+| capture | `e6reg_fda1120_ep1.pt` | `checkpoints/exp_e6reg_fda1120/epoch1.pt` | `e30b6bcfa763` |
+| unseen  | `fdab12_all_ep2.pt`    | `checkpoints/exp_fdab12_all/epoch2.pt`    | `e44aa6b10701` |
+| unseen  | `cnxfda_all_ep2.pt`    | `checkpoints/exp_cnxfda_all/epoch2.pt`    | `dd4f17385835` |
 
-If your fork uses a different owner/repo/tag, pass `--build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag>`.
+Full SHA-256 in `WEIGHTS.md`. If your fork uses a different owner/repo/tag, pass `--build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag>`.
 
 ## Environment
 
@@ -89,6 +107,16 @@ PYTHONPATH=src python3 -m freuid.train --config configs/exp_e6reg_fda1120.yaml  
 Recipe (identical across the three, see the config files): `model_type=dtc`, `heavy_recapture=true`,
 `fda_p=0.4`, `dtc_lambda=0.5`, `tracemix_p=0.5`, ImageNet-pretrained backbone, full/partial fine-tune.
 
+Reproduce the two **unseen-FDA** checkpoints (the `CARD=unseen` card; select epoch 2 of each):
+
+```bash
+PYTHONPATH=src python3 -m freuid.train --config configs/exp_fdab12_all.yaml  # ViT-L/14 DINOv2 FDA @896 -> epoch2
+PYTHONPATH=src python3 -m freuid.train --config configs/exp_cnxfda_all.yaml  # ConvNeXt-V2-L FDA @896  -> epoch2
+```
+
+Recipe (both): `model_type=rgb`, `fda=true` (Fourier domain adaptation, `fda_beta=0.12`),
+`loss=tail_margin`, full fine-tune. Two architectures for decorrelation on the unseen document types.
+
 ## Inference
 
 Local (flat directory of images → CSV):
@@ -100,7 +128,8 @@ FREUID_DATA_DIR=/path/to/images FREUID_OUT_DIR=/path/to/out \
 ## Docker (reproducibility contract)
 
 ```bash
-docker build -t freuid-repro:local .
+docker build -t freuid-repro:local .                          # capture card (default)
+# docker build --build-arg CARD=unseen -t freuid-repro:local . # or the unseen-FDA card
 docker run --network none \
   -v /path/to/flat/test/images:/data:ro \
   -v "$(pwd)/out":/submissions \

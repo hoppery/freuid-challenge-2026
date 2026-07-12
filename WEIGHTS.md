@@ -7,8 +7,14 @@ weights can be verified **unchanged since the freeze** — no retraining or weig
 
 Selection is made after the private images are released: we inspect their acquisition type (captured/physical
 vs born-digital) and deploy the matching frozen model. Swapping which frozen set the `Dockerfile` fetches is a
-*packaging* change (weights unchanged), which the rules allow after the freeze. Docker default = the **capture
-card** (leading bet, per the organizers' stated captured/physical + unseen-type private design).
+*packaging* change (weights unchanged), which the rules allow after the freeze. Both cards ship on the same
+Release and are selected at build time with a single build-arg (default = the **capture card**, the leading
+bet per the organizers' stated captured/physical + unseen-type private design):
+
+```bash
+docker build -t freuid-repro .                        # Candidate 1 — capture card (default)
+docker build --build-arg CARD=unseen -t freuid-repro . # Candidate 2 — unseen-FDA card
+```
 
 Weights are not stored in git (they exceed GitHub's 100 MB/file limit). They are hosted as **GitHub Release
 `weights-v1`** assets and fetched + SHA-256-verified at Docker build time (see `Dockerfile`, `README.md`).
