@@ -11,7 +11,10 @@ FROM nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src \
-    OMP_NUM_THREADS=4
+    OMP_NUM_THREADS=4 \
+    NO_ALBUMENTATIONS_UPDATE=1
+# ^ albumentations otherwise tries to fetch its latest version at import; under --network none that
+#   DNS lookup fails and prints a harmless UserWarning. Disabling it keeps the run log clean.
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip libglib2.0-0 curl ca-certificates && \

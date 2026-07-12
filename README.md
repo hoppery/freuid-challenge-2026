@@ -5,6 +5,10 @@ Reproducibility package for our submission to **The FREUID Challenge 2026 (IJCAI
 The task: given an image of an identity document, output a fraud score in `[0, 1]`
 (higher = more likely fraudulent). Scored by the FREUID metric (AuDET + APCER@1%BPCER).
 
+> **⚠️ Building/running the Docker image?** It targets **CUDA 13** and needs a host **NVIDIA driver
+> ≥ 580.65.06** to use the GPU. Pass **`--gpus all`** and confirm the run log shows `device=cuda`.
+> Full details in **[Host runtime requirements](#docker-reproducibility-contract)** below.
+
 ## Strategy (two tracks)
 
 The public and private test sets are, by the organizers' design, **different distributions**:
@@ -99,6 +103,22 @@ FREUID_DATA_DIR=/path/to/images FREUID_OUT_DIR=/path/to/out \
 
 ## Docker (reproducibility contract)
 
+> ## ⚠️ HOST RUNTIME REQUIREMENTS — please read before building
+>
+> The image is built for **CUDA 13** (`torch` cu130). To run inference **on the GPU**, the evaluation
+> host must provide:
+>
+> | Requirement | Value | Why it matters |
+> |-------------|-------|----------------|
+> | **NVIDIA driver** | **≥ 580.65.06** | The CUDA 13 minimum. On an **older driver the container cannot use the GPU** and falls back to CPU — too slow for the 6 h limit. Check with `nvidia-smi` (must show `CUDA Version: 13.x` or higher). |
+> | **GPU passed to container** | `--gpus all` | …or `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`, or `--device nvidia.com/gpu=all` on a CDI setup. Confirm the run log prints **`device=cuda`**. |
+> | **Base image** | `nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04` | Provides the in-container CUDA 13 runtime. |
+> | `--shm-size` | **not needed** | The loader decodes in a background thread (no multiprocessing), so the default 64 MB `/dev/shm` is fine. |
+>
+> A single **A100** finishes the hidden test in roughly **2–5 h** on the GPU. **If your eval host runs an
+> older CUDA/driver**, change the base image tag and the `torch` `--index-url` in the `Dockerfile` to match
+> (checkpoint weights are torch-version portable).
+
 ```bash
 docker build -t freuid-repro:local .
 docker run --gpus all --network none \
@@ -110,18 +130,9 @@ docker run --gpus all --network none \
 
 - `/data` — flat directory of images (`.jpeg .jpg .png .webp .bmp .tif .tiff`); `id` = filename stem.
 - `/submissions/submission.csv` — one row per input image, `label` ∈ [0, 1] (higher = more fraudulent).
-- **GPU**: pass **`--gpus all`** so inference runs on the GPU (a single A100 finishes in about 3 h; CPU
-  works but is far slower). If your Docker/NVIDIA-toolkit setup does not accept `--gpus all`, use the
-  equivalent for your host, e.g. `--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES=all`, or on a CDI setup
-  `--device nvidia.com/gpu=all`. The entrypoint auto-detects the GPU and falls back to CPU if none is given.
-- **CUDA / driver**: the image is built for CUDA 13 (`torch` cu130), which needs a host NVIDIA driver
-  **≥ 580.65.06** to use the GPU. On an older driver the container silently runs on CPU. If your eval
-  host uses an older driver/CUDA, change the base image tag and the `torch` `--index-url` in the
-  `Dockerfile` to match (checkpoint weights are torch-version portable).
-- **No `--shm-size` needed**: the data loader uses a file-system tensor-sharing strategy, so it runs
-  under Docker's default 64 MB `/dev/shm`.
 - Runs with **`--network none`**: all weights are baked into the image and models build with
   `pretrained=False`, so there are **no runtime downloads**. The container writes only to `/submissions`.
+  (The entrypoint auto-detects the GPU and falls back to CPU only if none is provided.)
 
 ## Repository layout
 
