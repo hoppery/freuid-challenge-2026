@@ -29,25 +29,12 @@ DATA_DIR = os.environ.get("FREUID_DATA_DIR", "/data")
 # so the entrypoint honors the contract regardless of which the verification harness sets.
 OUT_DIR = os.environ.get("FREUID_OUTPUT_DIR", os.environ.get("FREUID_OUT_DIR", "/submissions"))
 SUB_PATH = os.environ.get("FREUID_SUBMISSION_PATH", os.path.join(OUT_DIR, "submission.csv"))
-# Which frozen candidate card to run. Selected at Docker build time via `--build-arg CARD=...`
-# (the Dockerfile fetches the matching weights and sets FREUID_CARD). Default = capture.
-#   capture = 3-model DTC ensemble  (private captured/physical bet)
-#   unseen  = 2-model FDA ensemble  (born-digital + 2 unseen document types hedge)
-CARD = os.environ.get("FREUID_CARD", "capture").lower()
-_CARDS = {
-    "capture": [
-        "checkpoints/exp_e6_fda/epoch2.pt",        # ViT-B DINOv2 DTC @896
-        "checkpoints/exp_e6_fda1120/epoch2.pt",    # ViT-B DINOv2 DTC @1120
-        "checkpoints/exp_e6reg_fda1120/epoch1.pt", # RegNetY-160 DTC @1120 (arch-diversity)
-    ],
-    "unseen": [
-        "checkpoints/exp_fdab12_all/epoch2.pt",    # ViT-L DINOv2 FDA @896
-        "checkpoints/exp_cnxfda_all/epoch2.pt",    # ConvNeXt-V2-L FDA @896 (arch-diversity)
-    ],
-}
-if CARD not in _CARDS:
-    raise SystemExit(f"[docker_infer] unknown FREUID_CARD={CARD!r} (use one of: {', '.join(_CARDS)})")
-CKPTS = _CARDS[CARD]
+# The CAPTURE card: 3-model DTC prob-average (the single submitted model).
+CKPTS = [
+    "checkpoints/exp_e6_fda/epoch2.pt",        # ViT-B DINOv2 DTC @896
+    "checkpoints/exp_e6_fda1120/epoch2.pt",    # ViT-B DINOv2 DTC @1120
+    "checkpoints/exp_e6reg_fda1120/epoch1.pt", # RegNetY-160 DTC @1120 (arch-diversity)
+]
 EXTS = ("jpeg", "jpg", "png", "webp", "bmp", "tif", "tiff")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 FILL = 0.5  # score for images that fail to decode
@@ -144,7 +131,7 @@ def _validate(sub: pd.DataFrame, expected_ids) -> None:
 def main() -> int:
     os.makedirs(os.path.dirname(SUB_PATH) or ".", exist_ok=True)
     df = index_data(DATA_DIR)
-    print(f"[docker_infer] card={CARD} | {len(df)} images in {DATA_DIR} | device={DEVICE} | {len(CKPTS)} models")
+    print(f"[docker_infer] {len(df)} images in {DATA_DIR} | device={DEVICE} | {len(CKPTS)} models")
     if len(df) == 0:
         pd.DataFrame(columns=["id", "label"]).to_csv(SUB_PATH, index=False)
         print(f"[docker_infer] no images; wrote empty {SUB_PATH}")
