@@ -16,7 +16,7 @@ Kaggle usernames: suyongan
 Final Kaggle submission: [label / date-time as shown on Kaggle]
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
-Commit SHA: [40-char hash of the final HEAD — weights unchanged since the 2026-07-13 freeze]
+Commit SHA: c28806d51b4f3600f6c837a7f61ac2a6d3c6d2e3
 Technical report (PDF): https://github.com/hoppery/freuid-challenge-2026/blob/master/docs/technical_report.pdf
 
 We confirm this repository at the stated commit reproduces our selected final
@@ -29,10 +29,11 @@ Date (UTC): [YYYY-MM-DD]
 
 ## Fill-in notes (do NOT post these)
 - **Repository URL**: the public GitHub repo after `git push` (target `github.com/hoppery/freuid-challenge-2026`).
-- **Commit SHA**: `git rev-parse HEAD` of the final pushed commit; paste the full 40 chars. The rules require
-  the solution/weights to be in the public repo by 2026-07-13 and forbid weight/architecture/training changes
-  after; documentation and Docker packaging commits after 2026-07-13 are allowed as long as the weights are
-  unchanged. So the declared SHA may post-date 07-13 (e.g. a report/packaging commit) — it need not be dated 07-13.
+- **Commit SHA**: FILLED to `c28806d51b4f3600f6c837a7f61ac2a6d3c6d2e3`, the frozen code/Docker/weights-manifest
+  commit. The rules require the solution/weights in the public repo by 2026-07-13 and forbid weight/architecture/
+  training changes after; documentation/packaging commits after are allowed if weights are unchanged. This SHA
+  builds the exact submitted Docker. (Optional: if you post after the technical-report session pushes its final
+  doc commit, you may instead declare that later HEAD — `git rev-parse HEAD` — it builds the identical Docker.)
 - **Technical report URL**: already set to the GitHub blob URL of `docs/technical_report.pdf` on `master`
   (renders in-browser). Swap to a SHA permalink if you prefer to pin it to the exact frozen commit.
 - **Final Kaggle submission**: label/date-time of the selected final submission as shown on Kaggle.
