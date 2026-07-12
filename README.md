@@ -11,15 +11,15 @@ The public and private test sets are, by the organizers' design, **different dis
 
 | Track | Test distribution | Our card |
 |-------|-------------------|----------|
-| **Public** leaderboard | born-digital renders, seen document types | field-tamper architecture-diversity ensemble |
-| **Private** prize | **physically captured** + **2 unseen** document types | **CAPTURE card** (this Docker) |
+| **Public** | born-digital renders, seen document types | field-tamper architecture-diversity ensemble |
+| **Private** | **physically captured** + **2 unseen** document types | **CAPTURE card** (this Docker) |
 
-The prize is decided on the private (captured/physical) set, so the **Docker ships the CAPTURE card**.
-We empirically confirmed the antagonism on this competition: the same 3-model capture card scores
-**0.169** on the born-digital public set while the field-tamper card scores **0.00041** — a model that is
-optimal on one distribution fails on the other (recapture destroys the digital forgery artifacts the
-public model relies on). The capture card is the minimax-safe private pick (strong on captured, and
-still non-chance on born-digital).
+The reproducible submission is evaluated on the private (captured/physical) set, so the **Docker ships
+the CAPTURE card**. The two distributions are, in our measurements, antagonistic: the same 3-model
+capture card scores **0.169** on the born-digital public set while the field-tamper card scores
+**0.00041** — a model tuned for one distribution does poorly on the other (recapture destroys the
+digital forgery artifacts the public model relies on). The capture card is the more robust choice for
+the private set: strong on captured content, and still non-chance on born-digital.
 
 ### The CAPTURE card (what the Docker runs)
 
