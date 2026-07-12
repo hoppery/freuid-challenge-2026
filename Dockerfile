@@ -74,4 +74,10 @@ RUN set -eu; \
     else echo "unknown CARD='$FREUID_CARD' (use capture|unseen)" >&2; exit 1; fi; \
     sha256sum -c /tmp/w.sha256; rm -f /tmp/w.sha256
 
+# Run as a non-root user (uid 1000), matching the organizer's reference container. The baked weights
+# and source are world-readable; the container writes only to the /submissions mount, so this also
+# enforces the "no writes outside /submissions" verification requirement.
+RUN useradd --create-home --uid 1000 runner
+USER runner
+
 ENTRYPOINT ["python3", "/app/scripts/docker_infer.py"]

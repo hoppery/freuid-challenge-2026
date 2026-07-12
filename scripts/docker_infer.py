@@ -12,7 +12,7 @@ Device: CUDA if available, else CPU. Robust to unreadable images (assigned 0.5, 
 """
 from __future__ import annotations
 import os
-import glob
+import sys
 
 import cv2
 import numpy as np
@@ -25,7 +25,10 @@ from freuid.data.transforms import build_transforms
 from freuid.models.classifier import build_classifier
 
 DATA_DIR = os.environ.get("FREUID_DATA_DIR", "/data")
-OUT_DIR = os.environ.get("FREUID_OUT_DIR", "/submissions")
+# Accept the organizer's env var names (FREUID_OUTPUT_DIR / FREUID_SUBMISSION_PATH) as well as ours,
+# so the entrypoint honors the contract regardless of which the verification harness sets.
+OUT_DIR = os.environ.get("FREUID_OUTPUT_DIR", os.environ.get("FREUID_OUT_DIR", "/submissions"))
+SUB_PATH = os.environ.get("FREUID_SUBMISSION_PATH", os.path.join(OUT_DIR, "submission.csv"))
 # Which frozen candidate card to run. Selected at Docker build time via `--build-arg CARD=...`
 # (the Dockerfile fetches the matching weights and sets FREUID_CARD). Default = capture.
 #   capture = 3-model DTC ensemble  (private captured/physical bet)
@@ -51,10 +54,16 @@ FILL = 0.5  # score for images that fail to decode
 
 
 def index_data(d: str) -> pd.DataFrame:
+    """Flat, non-recursive scan of /data. Case-insensitive on the extension (matches the organizer's
+    reference discover_images: every file directly under /data whose suffix.lower() is a supported
+    image extension; id = filename stem)."""
+    exts = {"." + e for e in EXTS}
     paths = []
-    for e in EXTS:
-        paths += glob.glob(os.path.join(d, f"*.{e}"))
-        paths += glob.glob(os.path.join(d, f"*.{e.upper()}"))
+    if os.path.isdir(d):
+        for f in os.listdir(d):
+            p = os.path.join(d, f)
+            if os.path.isfile(p) and os.path.splitext(f)[1].lower() in exts:
+                paths.append(p)
     paths = sorted(set(paths))
     ids = [os.path.splitext(os.path.basename(p))[0] for p in paths]
     return pd.DataFrame({"path": paths, "image_id": ids})
@@ -115,15 +124,31 @@ def run_one(ckpt: str, df: pd.DataFrame) -> dict:
     return out
 
 
-def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
-    out_csv = os.path.join(OUT_DIR, "submission.csv")
+def _validate(sub: pd.DataFrame, expected_ids) -> None:
+    """Mirror the organizer's contract check: columns [id,label], one finite row per image, no
+    missing/extra ids. Raise (-> non-zero exit) on any violation."""
+    if list(sub.columns) != ["id", "label"]:
+        raise ValueError(f"submission.csv must have columns ['id','label']; got {list(sub.columns)}")
+    got = set(sub["id"].astype(str))
+    missing, extra = expected_ids - got, got - expected_ids
+    if missing:
+        raise ValueError(f"submission.csv missing {len(missing)} id(s), e.g. {sorted(missing)[:3]}")
+    if extra:
+        raise ValueError(f"submission.csv has {len(extra)} unexpected id(s), e.g. {sorted(extra)[:3]}")
+    if int(sub["id"].duplicated().sum()) != 0:
+        raise ValueError("submission.csv has duplicate ids")
+    if not np.isfinite(sub["label"].to_numpy(dtype=float)).all():
+        raise ValueError("submission.csv has non-finite labels")
+
+
+def main() -> int:
+    os.makedirs(os.path.dirname(SUB_PATH) or ".", exist_ok=True)
     df = index_data(DATA_DIR)
     print(f"[docker_infer] card={CARD} | {len(df)} images in {DATA_DIR} | device={DEVICE} | {len(CKPTS)} models")
     if len(df) == 0:
-        pd.DataFrame(columns=["id", "label"]).to_csv(out_csv, index=False)
-        print(f"[docker_infer] no images; wrote empty {out_csv}")
-        return
+        pd.DataFrame(columns=["id", "label"]).to_csv(SUB_PATH, index=False)
+        print(f"[docker_infer] no images; wrote empty {SUB_PATH}")
+        return 0
 
     per_model = [run_one(ck, df) for ck in CKPTS]
     rows = []
@@ -133,10 +158,16 @@ def main():
         rows.append(float(np.mean(vals)) if vals else FILL)
     sub = pd.DataFrame({"id": df["image_id"].astype(str), "label": rows})
     sub["label"] = sub["label"].fillna(FILL).clip(0.0, 1.0)
-    sub.to_csv(out_csv, index=False)
-    print(f"[docker_infer] wrote {out_csv} ({len(sub)} rows) "
+    _validate(sub, set(df["image_id"].astype(str)))
+    sub.to_csv(SUB_PATH, index=False)
+    print(f"[docker_infer] wrote {SUB_PATH} ({len(sub)} rows) "
           f"| label range {sub['label'].min():.4f}-{sub['label'].max():.4f} | dup {int(sub['id'].duplicated().sum())}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except Exception as exc:  # exit non-zero on any failure, per the reproducibility contract
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
