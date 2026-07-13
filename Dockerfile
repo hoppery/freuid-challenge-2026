@@ -1,4 +1,4 @@
-# FREUID Challenge 2026 — reproducibility inference image (CAPTURE card, private track).
+# FREUID Challenge 2026 — reproducibility inference image (unseen-FDA card, private track).
 # Contract:  docker run --network none -v <flat_images>:/data:ro -v "$(pwd)/out":/submissions freuid-repro:local
 #   reads /data (flat dir of images) -> writes /submissions/submission.csv (id,label = P(fraud)).
 # All weights are BAKED IN and the model builds with pretrained=False, so NO network is used at run time.
@@ -41,20 +41,18 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 COPY src/ /app/src/
 COPY scripts/docker_infer.py /app/scripts/docker_infer.py
 
-# --- The 3 CAPTURE-card checkpoints (~1 GB), fetched at BUILD time (network is allowed during build) and
-#     baked into the image — so the RUN stage needs no network (--network none). Weights exceed GitHub's
+# --- The 2 unseen-FDA-card checkpoints (~1.9 GB), fetched at BUILD time (network is allowed during build)
+#     and baked into the image — so the RUN stage needs no network (--network none). Weights exceed GitHub's
 #     100 MB/file limit, so they are hosted as GitHub Release assets. SHA-256 is verified, so the build
 #     FAILS LOUDLY on any wrong, missing, or corrupt download.
 #     If your owner/repo/tag differ, override WEIGHTS_BASE:
 #       docker build --build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag> -t freuid-repro:local .
 ARG WEIGHTS_BASE=https://github.com/hoppery/freuid-challenge-2026/releases/download/weights-v1
-RUN set -eu; mkdir -p /app/checkpoints/exp_e6_fda /app/checkpoints/exp_e6_fda1120 /app/checkpoints/exp_e6reg_fda1120; \
-    curl -fSL "$WEIGHTS_BASE/e6_fda_ep2.pt"        -o /app/checkpoints/exp_e6_fda/epoch2.pt; \
-    curl -fSL "$WEIGHTS_BASE/e6_fda1120_ep2.pt"    -o /app/checkpoints/exp_e6_fda1120/epoch2.pt; \
-    curl -fSL "$WEIGHTS_BASE/e6reg_fda1120_ep1.pt" -o /app/checkpoints/exp_e6reg_fda1120/epoch1.pt; \
-    { echo "990703a5bee241747b527fb4b3aa202f94e5871c100ca6cd1d2cd51308580e48  /app/checkpoints/exp_e6_fda/epoch2.pt"; \
-      echo "c61d1bd76080e4946b187b4330339062ad9107fb8847f73864412d497982714f  /app/checkpoints/exp_e6_fda1120/epoch2.pt"; \
-      echo "e30b6bcfa7636cefa7ae633884ceed290cbee11bcedbff57a77413ffc35699d0  /app/checkpoints/exp_e6reg_fda1120/epoch1.pt"; \
+RUN set -eu; mkdir -p /app/checkpoints/exp_fdab12_all /app/checkpoints/exp_cnxfda_all; \
+    curl -fSL "$WEIGHTS_BASE/fdab12_all_ep2.pt" -o /app/checkpoints/exp_fdab12_all/epoch2.pt; \
+    curl -fSL "$WEIGHTS_BASE/cnxfda_all_ep2.pt" -o /app/checkpoints/exp_cnxfda_all/epoch2.pt; \
+    { echo "e44aa6b107011f5663849ac655ef1aa197d1e82bac4be21eb875e69cd5a86b34  /app/checkpoints/exp_fdab12_all/epoch2.pt"; \
+      echo "dd4f1738583557f2fcef2f3f33f767f5ac129a6ae403323716cfc5a90231632b  /app/checkpoints/exp_cnxfda_all/epoch2.pt"; \
     } > /tmp/w.sha256; \
     sha256sum -c /tmp/w.sha256; rm -f /tmp/w.sha256
 

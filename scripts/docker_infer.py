@@ -1,7 +1,7 @@
 """FREUID reproducibility Docker entrypoint.
 
-Reads a FLAT directory of images (default /data), scores each with the CAPTURE card
-(3-model prob-avg: ViT-B DTC @896 + ViT-B DTC @1120 + RegNetY-160 DTC @1120), and writes
+Reads a FLAT directory of images (default /data), scores each with the unseen-FDA card
+(2-model prob-avg: ViT-L/14 DINOv2 FDA @896 + ConvNeXt-V2-L FDA @896), and writes
 /submissions/submission.csv with columns id,label where:
   id    = input filename without extension
   label = P(document is fraudulent), higher = more confident fraud, finite float in [0,1]
@@ -31,11 +31,11 @@ DATA_DIR = os.environ.get("FREUID_DATA_DIR", "/data")
 # so the entrypoint honors the contract regardless of which the verification harness sets.
 OUT_DIR = os.environ.get("FREUID_OUTPUT_DIR", os.environ.get("FREUID_OUT_DIR", "/submissions"))
 SUB_PATH = os.environ.get("FREUID_SUBMISSION_PATH", os.path.join(OUT_DIR, "submission.csv"))
-# The CAPTURE card: 3-model DTC prob-average (the single submitted model).
+# The unseen-FDA card: 2-model prob-average (the single submitted model). Fourier-domain-adaptation
+# fine-tuning + architecture diversity, built for born-digital documents incl. unseen document types.
 CKPTS = [
-    "checkpoints/exp_e6_fda/epoch2.pt",        # ViT-B DINOv2 DTC @896
-    "checkpoints/exp_e6_fda1120/epoch2.pt",    # ViT-B DINOv2 DTC @1120
-    "checkpoints/exp_e6reg_fda1120/epoch1.pt", # RegNetY-160 DTC @1120 (arch-diversity)
+    "checkpoints/exp_fdab12_all/epoch2.pt",   # ViT-L/14 DINOv2 (FDA) @896
+    "checkpoints/exp_cnxfda_all/epoch2.pt",   # ConvNeXt-V2-L (FDA) @896 (architecture diversity)
 ]
 EXTS = ("jpeg", "jpg", "png", "webp", "bmp", "tif", "tiff")
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"

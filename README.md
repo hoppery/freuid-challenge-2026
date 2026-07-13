@@ -9,47 +9,43 @@ The task: given an image of an identity document, output a fraud score in `[0, 1
 > ≥ 580.65.06** to use the GPU. Pass **`--gpus all`** and confirm the run log shows `device=cuda`.
 > Full details in **[Host runtime requirements](#docker-reproducibility-contract)** below.
 
-## Strategy (two tracks)
+## Strategy
 
-The public and private test sets are, by the organizers' design, **different distributions**:
+The private test set is **born-digital identity documents that include document types not present in the
+training set**. Our submitted model is built for exactly that: it must generalize across document types
+— including unseen ones — rather than lean on the appearance of the types it was trained on.
 
-| Track | Test distribution | Our card |
-|-------|-------------------|----------|
-| **Public** | born-digital renders, seen document types | field-tamper architecture-diversity ensemble |
-| **Private** | **physically captured** + **2 unseen** document types | **CAPTURE card** (this Docker) |
+Two design choices target cross-type generalization:
 
-The reproducible submission is evaluated on the private (captured/physical) set, so the **Docker ships
-the CAPTURE card**. The two distributions are, in our measurements, antagonistic: the same 3-model
-capture card scores **0.169** on the born-digital public set while the field-tamper card scores
-**0.00041** — a model tuned for one distribution does poorly on the other (recapture destroys the
-digital forgery artifacts the public model relies on). The capture card is the more robust choice for
-the private set: strong on captured content, and still non-chance on born-digital.
+- **Fourier domain adaptation (FDA)** during fine-tuning. Randomizing the low-frequency (global colour /
+  layout) content decouples the fraud signal from document-type appearance, so an unseen-type genuine
+  document is not flagged just for looking unfamiliar.
+- **Architecture diversity.** A transformer and a convolutional backbone rely on different cues and fail
+  on different document types; averaging the two holds up on unseen types where either alone would slip.
 
-### The CAPTURE card (what the Docker runs)
+### The unseen-FDA card (what the Docker runs)
 
-Probability-average of three DTC (dense-tampering-consistency) detectors trained on FREUID +
-diverse captured-genuine sources with heavy print-and-capture augmentation:
+Probability-average of two FDA-fine-tuned detectors:
 
 | checkpoint | backbone | resolution |
 |------------|----------|------------|
-| `checkpoints/exp_e6_fda/epoch2.pt`        | ViT-B/14 DINOv2 (DTC) | 896 |
-| `checkpoints/exp_e6_fda1120/epoch2.pt`    | ViT-B/14 DINOv2 (DTC) | 1120 |
-| `checkpoints/exp_e6reg_fda1120/epoch1.pt` | RegNetY-160 (DTC)     | 1120 |
+| `checkpoints/exp_fdab12_all/epoch2.pt` | ViT-L/14 DINOv2 (FDA) | 896 |
+| `checkpoints/exp_cnxfda_all/epoch2.pt` | ConvNeXt-V2-L (FDA)   | 896 |
 
-Two ViT-B anchors (stable operating point) + a decorrelated RegNetY (architecture diversity, the
-lever that roughly halved our capture-proxy error) give the most seed-robust card.
+Both are full fine-tunes with FDA augmentation and a tail-margin operating-point loss (which optimizes
+the low-BPCER tail the FREUID metric scores). The ViT-L (DINOv2) and ConvNeXt-V2-L backbones are
+decorrelated, so the pair stays robust on document types neither has seen.
 
 ### Model weights (GitHub Release)
 
-The three checkpoints (~1 GB total) exceed GitHub's 100 MB/file limit, so they are hosted as **GitHub
+The two checkpoints (~1.9 GB total) exceed GitHub's 100 MB/file limit, so they are hosted as **GitHub
 Release assets** and fetched by the `Dockerfile` at **build time** (SHA-256 verified) and baked into the
 image — so `docker run --network none` needs no network. Release `weights-v1` assets:
 
 | Release asset | → in image | SHA-256 (first 12) |
 |---------------|------------|--------------------|
-| `e6_fda_ep2.pt`        | `checkpoints/exp_e6_fda/epoch2.pt`        | `990703a5bee2` |
-| `e6_fda1120_ep2.pt`    | `checkpoints/exp_e6_fda1120/epoch2.pt`    | `c61d1bd76080` |
-| `e6reg_fda1120_ep1.pt` | `checkpoints/exp_e6reg_fda1120/epoch1.pt` | `e30b6bcfa763` |
+| `fdab12_all_ep2.pt` | `checkpoints/exp_fdab12_all/epoch2.pt` | `e44aa6b10701` |
+| `cnxfda_all_ep2.pt` | `checkpoints/exp_cnxfda_all/epoch2.pt` | `dd4f17385835` |
 
 Full SHA-256 in `WEIGHTS.md`. If your fork uses a different owner/repo/tag, pass `--build-arg WEIGHTS_BASE=https://github.com/<owner>/<repo>/releases/download/<tag>`.
 
@@ -70,28 +66,21 @@ entrypoint falls back to CPU automatically if no GPU is present.
 
 - **Competition data** (FREUID train + public test): download per the Kaggle competition
   `the-freuid-challenge-2026-ijcai-ecai` into `data/raw/freuid/`.
-- **External captured-genuine sources** used to build the capture manifest (downloaded by
-  `scripts/download/fetch_aux.py`): MIDV-500, MIDV-2019, MIDV-Holo, MIDV-2020, BID (Brazilian IDs),
-  and FantasyID (physical printed + GenAI). All are genuine captured documents added at moderate
-  upweight; no external fraud labels are used.
+- The submitted model is trained on the **FREUID train split only** (`manifests/freuid.parquet`).
+  No external datasets are used.
 
-Build the capture training manifest:
-```bash
-PYTHONPATH=src python3 scripts/build_capgen_e6.py     # -> manifests/freuid_fid_capgen_e6.parquet
-```
+## Training (reproduce the two checkpoints)
 
-## Training (reproduce the three capture checkpoints)
-
-Each is a 3-epoch run; we select the epoch noted above (post-hoc, by the FantasyID capture proxy).
+Each is a 6-epoch run; we select **epoch 2** of each.
 
 ```bash
-PYTHONPATH=src python3 -m freuid.train --config configs/exp_e6_fda.yaml         # ViT-B DTC @896  -> epoch2
-PYTHONPATH=src python3 -m freuid.train --config configs/exp_e6_fda1120.yaml     # ViT-B DTC @1120 -> epoch2
-PYTHONPATH=src python3 -m freuid.train --config configs/exp_e6reg_fda1120.yaml  # RegNetY DTC @1120 -> epoch1
+PYTHONPATH=src python3 -m freuid.train --config configs/exp_fdab12_all.yaml  # ViT-L/14 DINOv2 FDA @896 -> epoch2
+PYTHONPATH=src python3 -m freuid.train --config configs/exp_cnxfda_all.yaml  # ConvNeXt-V2-L FDA @896  -> epoch2
 ```
 
-Recipe (identical across the three, see the config files): `model_type=dtc`, `heavy_recapture=true`,
-`fda_p=0.4`, `dtc_lambda=0.5`, `tracemix_p=0.5`, ImageNet-pretrained backbone, full/partial fine-tune.
+Recipe (both, see the config files): `model_type=rgb`, `fda=true` (Fourier domain adaptation,
+`fda_beta=0.12`), `loss=tail_margin` (tail-quantile 0.99), full fine-tune (`unfreeze_last_k=2` on the
+ViT), DINOv2 / ImageNet-pretrained backbone, `img_size=896`, `lr=5e-5`.
 
 ## Inference
 
@@ -139,9 +128,9 @@ docker run --gpus all --network none \
 
 ```
 src/freuid/           training + inference package (config, data, models, train, infer, metrics)
-configs/              experiment YAMLs (the three capture configs are listed above)
-scripts/              manifest builders, capture-proxy evals, docker_infer.py entrypoint
-checkpoints/          model checkpoints (the three capture ckpts are embedded in the Docker image)
+configs/              experiment YAMLs (the two unseen-FDA configs are listed above)
+scripts/              training/eval utilities, docker_infer.py entrypoint
+checkpoints/          model checkpoints (the two unseen-FDA ckpts are embedded in the Docker image)
 Dockerfile            reproducibility inference image
 ```
 
