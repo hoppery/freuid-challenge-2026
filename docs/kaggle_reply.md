@@ -16,24 +16,26 @@ Kaggle usernames: suyongan
 Final Kaggle submission: [label / date-time as shown on Kaggle]
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
-Commit SHA: 2404b934a9a428d90ec79a9064b670018d982261
+Commit SHA: 49a014240dc25f4977f36709454705599b710df1
 Technical report (PDF): https://github.com/hoppery/freuid-challenge-2026/blob/master/docs/technical_report.pdf
 
 We confirm this repository at the stated commit reproduces our selected final
 submission and complies with the competition rules.
 
 Signed (team captain): suyongan
-Date (UTC): [YYYY-MM-DD]
+Date (UTC): 2026-07-13
 
 ---
 
 ## Fill-in notes (do NOT post these)
 - **Repository URL**: the public GitHub repo after `git push` (target `github.com/hoppery/freuid-challenge-2026`).
-- **Commit SHA**: FILLED to `2404b934a9a428d90ec79a9064b670018d982261`, the final frozen commit (code + Docker +
+- **Commit SHA**: FILLED to `49a014240dc25f4977f36709454705599b710df1`, the final frozen commit (code + Docker +
   weights manifest + finalized technical report). The rules require the solution/weights in the public repo by
   2026-07-13 and forbid weight/architecture/training changes after; documentation/packaging commits after are
   allowed if weights are unchanged. This SHA builds the exact submitted Docker and contains the final report.
 - **Technical report URL**: already set to the GitHub blob URL of `docs/technical_report.pdf` on `master`
   (renders in-browser). Swap to a SHA permalink if you prefer to pin it to the exact frozen commit.
-- **Final Kaggle submission**: label/date-time of the selected final submission as shown on Kaggle.
+- **Final Kaggle submission** (the ONLY field still blank): fill AFTER you upload the submission CSV to
+  Kaggle and mark it as your final submission. Copy the label/date-time exactly as Kaggle shows it.
+- **Date (UTC)**: set to 2026-07-13 (today, UTC). If you post on a later UTC day, update it to that date.
 - Reply = this block only; organizers follow the repo README, not a second copy on the forum.
