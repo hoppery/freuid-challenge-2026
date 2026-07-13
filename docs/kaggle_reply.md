@@ -16,7 +16,7 @@ Kaggle usernames: suyongan
 Final Kaggle submission: [label / date-time as shown on Kaggle]
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
-Commit SHA: 49a014240dc25f4977f36709454705599b710df1
+Commit SHA: 993dbc25e4dcf684eeac1c1a4b7b59447a3b754d
 Technical report (PDF): https://github.com/hoppery/freuid-challenge-2026/blob/master/docs/technical_report.pdf
 
 We confirm this repository at the stated commit reproduces our selected final
@@ -29,7 +29,7 @@ Date (UTC): 2026-07-13
 
 ## Fill-in notes (do NOT post these)
 - **Repository URL**: the public GitHub repo after `git push` (target `github.com/hoppery/freuid-challenge-2026`).
-- **Commit SHA**: FILLED to `49a014240dc25f4977f36709454705599b710df1`, the final frozen commit (code + Docker +
+- **Commit SHA**: FILLED to `993dbc25e4dcf684eeac1c1a4b7b59447a3b754d`, the final frozen commit (code + Docker +
   weights manifest + finalized technical report). The rules require the solution/weights in the public repo by
   2026-07-13 and forbid weight/architecture/training changes after; documentation/packaging commits after are
   allowed if weights are unchanged. This SHA builds the exact submitted Docker and contains the final report.
