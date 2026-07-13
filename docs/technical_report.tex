@@ -276,7 +276,7 @@ every input gives exactly one finite score in $[0,1]$.
 We use the official FREUID \texttt{train/} images and \texttt{train.csv} metadata (Kaggle competition
 \texttt{the-freuid-challenge-2026-ijcai-ecai}), assembled into a single manifest
 \texttt{manifests/freuid.parquet}. The submitted model trains on this FREUID training split only. It uses
-\textbf{no external data}: no captured-document corpora, no extra fraud sources, and no test data at any
+\textbf{no external data}: no additional document corpora, no extra fraud sources, and no test data at any
 point. The pretrained backbone weights are used under their upstream licenses.
 
 \paragraph{Validation by leave-one-document-type-out.}
@@ -330,7 +330,7 @@ Ensemble (prob.\ average) & \textbf{0.0002} & 0.0062          & \textbf{0.0032} 
 \end{tabular}
 \end{table}
 
-\subsection{The two backbones are complementary}
+\subsection{Complementary backbones}
 Table~\ref{tab:folds} and Fig.~\ref{fig:folds} show the pattern. The ViT-L/14 DINOv2 detector is strong on
 EGYPT ($0.0020$) but weak on BENIN ($0.0140$). The ConvNeXt-V2-L detector is the reverse: strong on BENIN
 ($0.0023$) and weak on EGYPT ($0.0150$). Each model owns the fold that the other struggles with. Their
@@ -338,7 +338,7 @@ predictions are decorrelated, with a correlation between about $0.78$ and $0.85$
 low enough for averaging to help. This is the cross-type version of the diversity effect: because the two
 families fail on different document types, neither alone is safe for a type it has not seen.
 
-\subsection{The ensemble generalizes across types}
+\subsection{Cross-type generalization}
 The probability average is low on both folds. On EGYPT it reaches $0.0002$, below both single models, and on
 BENIN it stays low at $0.0062$. The two-fold mean falls from about $0.0084$, the mean of the two single
 backbones, to $0.0032$ for the ensemble. The point is not that the average wins every fold, but that it does
@@ -359,7 +359,8 @@ of direction, not a private measurement.
   ymin=1e-4, ymax=4e-2,
   ylabel={LODO FREUID Score (log)},
   ytick={1e-4,1e-3,1e-2},
-  legend pos=north west,
+  legend style={at={(0.5,-0.20)}, anchor=north, legend columns=3, draw=none,
+    font=\small, /tikz/every even column/.append style={column sep=8pt}},
   enlarge x limits=0.55,
 ]
 \addplot[fill=cvit, draw=cvit!55!black] coordinates {(EGYPT,0.0020) (BENIN,0.0140)};
@@ -375,7 +376,7 @@ two-fold mean.}
 \label{fig:folds}
 \end{figure}
 
-\subsection{Design choices we kept and dropped}
+\subsection{Kept and dropped design choices}
 \label{sec:ablation}
 Two choices carried the cross-type result. Fourier Domain Adaptation was kept because randomizing
 low-frequency appearance is what lets an unseen-type genuine document avoid being flagged for looking
