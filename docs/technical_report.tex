@@ -37,18 +37,19 @@
 \tolerance=1400
 \hbadness=10000
 
-% --- CVD-safe categorical palette (Okabe-Ito; validated dE 109.5, value labels give contrast relief) ---
-\definecolor{cpub}{HTML}{0072B2}   % public-best model  (blue)
-\definecolor{cpriv}{HTML}{E69F00}  % private-best model (orange)
+% --- CVD-safe categorical palette (Okabe-Ito) ---
+\definecolor{cvit}{HTML}{0072B2}   % ViT-L DINOv2 detector  (blue)
+\definecolor{ccnx}{HTML}{E69F00}   % ConvNeXt-V2-L detector (orange)
+\definecolor{cens}{HTML}{009E73}   % ensemble               (bluish green)
 \definecolor{axgray}{HTML}{6B6B6B}
 \definecolor{gridgray}{HTML}{DCDCDC}
 \definecolor{blockbg}{HTML}{EEF3F7}
-\definecolor{tracebg}{HTML}{FBF0DF}
+\definecolor{fdabg}{HTML}{FBF0DF}
 
 % --- recessive academic axis style ---
 \pgfplotsset{
   paperaxis/.style={
-    width=0.72\textwidth, height=5.2cm,
+    width=0.72\textwidth, height=5.4cm,
     axis line style={axgray, line width=0.5pt},
     tick style={axgray, line width=0.5pt},
     every tick label/.append style={font=\scriptsize, color=axgray},
@@ -67,8 +68,8 @@
 \newcommand{\reportdate}{July 2026}
 
 \title{%
-  \textbf{Cross-Distribution Identity-Document Fraud Detection:\\
-  Diversity-Axis Ensembles of Double-Trace Consistency Detectors}\\[0.5em]
+  \textbf{Cross-Type Identity-Document Fraud Detection:\\
+  Fourier Domain Adaptation and Architecture-Diverse Ensembling}\\[0.5em]
   \large The FREUID Challenge 2026: Technical Report (Team \teamname)
 }
 \author{%
@@ -85,20 +86,20 @@
 
 \begin{abstract}
 The FREUID Challenge 2026 requires a scalar fraud score in $[0,1]$ for each identity-document image, ranked
-by the FREUID Score (AuDET $+$ APCER@1\%BPCER; lower is better). The test data is split by design: the
-public split (about $5\%$) is born-digital, while the private split (about $95\%$) decides the ranking and
-mixes synthetic and physically captured images, including two document types absent from training. A single
-submission is scored on both splits, and the FREUID Score heavily penalizes a model that collapses on part
-of the data. We therefore submit one model built for the captured and
-unseen-type private split, not one tuned for the public leaderboard. The submitted model is a Double-Trace
-Consistency (DTC) capture ensemble: each detector adds a high-pass forensic branch to a pretrained RGB
-backbone and uses the trace as a global feature and as a document-type-agnostic patch-consistency signal.
-The main gain comes from ensembling decorrelated backbones across architecture and resolution: adding a
-RegNetY-160 to two ViT-B detectors lowers the held-out captured-proxy score from $0.384$ to $0.227$. A
-public-leaderboard-tuned ensemble reaches $0.00041$ on the public split but is near chance on captured data,
-so we do not submit it. Training uses the competition data and public external datasets with self-supervised
-augmentation, never the test data; inference is a plain probability average in a pinned container that runs
-offline.
+by the FREUID Score (AuDET $+$ APCER@1\%BPCER; lower is better). The private split, which decides the
+ranking, is born-digital and contains identity-document types that are not present in the training data. The
+central difficulty is therefore cross-type generalization: a detector must judge a document type it has never
+seen without flagging a genuine one simply because it looks unfamiliar. Our submitted model is the
+probability average of two full fine-tuned RGB detectors, a ViT-L/14 DINOv2 transformer and a ConvNeXt-V2-L
+convolutional network, both trained at 896 pixels on the FREUID training split only, with no external data.
+Two design choices target unseen types. First, Fourier Domain Adaptation randomizes the low-frequency global
+appearance during training, which decouples the fraud signal from document-type look. Second, we combine a
+transformer and a convolutional backbone, which rely on different cues and fail on different document types,
+so their average holds up where either alone would slip. A tail-margin loss focuses training on the
+low-BPCER tail that the metric scores. In leave-one-document-type-out cross-validation on the two hardest
+folds, the two backbones are complementary (prediction correlation about 0.78 to 0.85), and their average
+lowers the two-fold mean FREUID Score from about 0.0084 for a single backbone to 0.0032, reaching 0.0002 on
+the EGYPT fold. Inference is a plain probability average in a pinned container that runs offline.
 \end{abstract}
 
 \noindent\textbf{Competition:} The FREUID Challenge 2026 (IJCAI-ECAI 2026), Kaggle
@@ -108,322 +109,286 @@ offline.
 
 \section{Introduction}
 \label{sec:intro}
-Identity-document fraud has several threat models: physical manipulation and re-capture, localized digital
-editing, and fully synthetic (GenAI) content. The FREUID Challenge~\cite{freuid2026} combines these into a
-single task. The model outputs $P(\text{fraudulent})\in[0,1]$ for each image, scored by the FREUID Score
-(AuDET $+$ APCER@1\%BPCER; lower is better).
+Identity-document fraud detection asks whether a document image is genuine or fraudulent. The FREUID
+Challenge~\cite{freuid2026} frames this as a single scalar task: the model outputs
+$P(\text{fraudulent})\in[0,1]$ for each image, scored by the FREUID Score (AuDET $+$ APCER@1\%BPCER; lower is
+better). The APCER@1\%BPCER term measures the attack-acceptance rate at a strict $1\%$ genuine-rejection
+operating point, so the metric rewards a model that keeps a very low false-positive tail on genuine
+documents.
 
-The challenge splits the test data in a deliberate way. The \emph{public} split is about $5\%$ of the test
-data. It is born-digital and covers the five training document types. The \emph{private} split is about
-$95\%$ and decides the full ranking. It is drawn from a hybrid of synthetic and physically captured images,
-and it adds \textbf{two document types that are not in training}. A detector that only memorizes the
-born-digital appearance of the seen types generalizes poorly to the captured and unseen-type content. The
-organizers also caution against optimizing the public leaderboard~\cite{freuid2026}.
+The property that shapes our design is the gap between training and the private test in document type. The
+training data covers five document types (EGYPT, GUINEA, BENIN, MOZAMBIQUE, and MAURITIUS driving licence and
+identity cards) and is born-digital. The private split, which decides the ranking, is also born-digital but
+includes document types that are not in the training data. A detector that memorizes the exact appearance of
+the five training types can look strong in validation and still fail on the private split, because a genuine
+document of an unseen type is unfamiliar and is easy to mistake for a manipulation. Cross-type generalization
+is therefore the goal, not fitting the seen types more tightly.
 
-A single submission is scored on both splits. We cannot produce different predictions for the two splits,
-and per-image routing is unsafe (Section~\ref{sec:rejected}). We
-therefore submit one model. Section~\ref{sec:antagonism} shows why we do not submit the public-optimized
-model: it drops to near chance on captured data. Because the
-private split carries captured and unseen-type content, and because the metric heavily penalizes a model
-that collapses on part of the data, we submit a model built for robustness (our \textbf{private-best} model). We
-select it on a captured proxy, never on private labels.
+We address this with one model and two design choices. Fourier Domain Adaptation~\cite{fda} randomizes the
+low-frequency global appearance of training images, which pushes the network to decide on structure and
+local evidence rather than on the overall color and layout of a given type. Architecture diversity pairs a
+self-supervised vision transformer (ViT-L/14 DINOv2~\cite{dinov2,vit}) with a convolutional backbone
+(ConvNeXt-V2-L). The two families carry different inductive biases, make different mistakes across document
+types, and are only weakly correlated, so a plain probability average is more stable on unseen types than
+either model alone~\cite{deepensembles}.
 
 \paragraph{Contributions.}
 \begin{enumerate}[leftmargin=1.3em,itemsep=1pt,topsep=2pt]
-  \item We show that a model optimized for the born-digital public leaderboard collapses on captured data
-        (Section~\ref{sec:antagonism}); a strong public score therefore need not carry over to the captured,
-        unseen-type private split that decides the ranking.
-  \item We propose the Double-Trace Consistency detector (DTC), a detector whose patch-consistency signal
-        does not depend on the document type (Section~\ref{sec:dtc}, Fig.~\ref{fig:arch}).
-  \item We show a diversity-axis ensembling principle: combining decorrelated architectures and resolutions
-        improves the submitted ensemble, with the architecture axis giving the larger gain
-        (Sections~\ref{sec:diversity}, \ref{sec:results}).
+  \item We build a cross-type fraud detector from FREUID training data only, with no external data, using
+        Fourier Domain Adaptation to decouple the fraud signal from document-type appearance
+        (Section~\ref{sec:method}).
+  \item We show that a transformer and a convolutional backbone are complementary across document types:
+        each is strong on the fold where the other is weak, and their predictions are decorrelated
+        (Section~\ref{sec:results}).
+  \item We show, by leave-one-document-type-out cross-validation on the two hardest folds, that a plain
+        probability average of the two backbones generalizes better across types than either single model
+        (Section~\ref{sec:results}, Fig.~\ref{fig:folds}).
 \end{enumerate}
 
 \paragraph{Related work.}
-Identity-document forgery and presentation-attack detection is an active benchmark area. FantasyID%
-~\cite{fantasyid} provides captured bona-fide cards with GenAI manipulations, close to this challenge's
-threat model. For synthetic (GenAI) content, adapter-based detectors on frozen vision-language features
-generalize across generators~\cite{fatformer}. Manipulation and re-capture leave low-level traces that
-semantic features miss. High-pass residual streams
-expose splicing and reprint artifacts. Central Difference Convolutions capture the gradient micro-texture
-used in face anti-spoofing~\cite{cdcn}. We build on the residual-trace idea, but we summarize it as a
-\emph{consistency} statistic. Self-blended images~\cite{sbi} synthesize manipulation traces without
-manipulation labels. We adopt this idea for our self-supervised consistency target and for the field-tamper
-augmentation. We use self-supervised ViT features (DINOv2~\cite{dinov2}, ViT~\cite{vit}) together with
-a convolutional family (RegNet~\cite{regnet}) through \texttt{timm}~\cite{timm}. These families have different inductive biases, which we use for decorrelation. For
-robustness we use Fourier Domain Adaptation~\cite{fda} to randomize low-frequency appearance. Our
-ensembling builds on deep ensembles~\cite{deepensembles}; we add evidence on which type of diversity helps
-here.
+Identity-document forgery detection and presentation-attack detection are active benchmark areas. For
+synthetic and generative content, adapter-based detectors on frozen vision-language features generalize
+across generators~\cite{fatformer}. Robustness to appearance shift has been approached by randomizing
+feature statistics, for example MixStyle~\cite{mixstyle}, and by randomizing low-frequency image content, as
+in Fourier Domain Adaptation~\cite{fda}, which we adopt. We use self-supervised transformer features
+(DINOv2~\cite{dinov2}, ViT~\cite{vit}) together with a modern convolutional backbone (ConvNeXt-V2-L), both
+from \texttt{timm}~\cite{timm}. Because the metric scores a strict operating point, we train with a loss that
+focuses on the hard low-BPCER tail, related in spirit to focal loss~\cite{focal}. Our ensembling builds on
+deep ensembles~\cite{deepensembles}; we add evidence that cross-architecture diversity, rather than
+same-family seed diversity, is what helps on unseen document types.
 
 \section{Method}
 \label{sec:method}
 
 \subsection{Overview and problem setting}
 \label{sec:setting}
-Let $x$ be an image and $y\in\{0,1\}$ its fraud label. Each detector produces a fraud logit $\ell(x)$ and a
-probability $\sigma(\ell(x))\in[0,1]$, where $\sigma$ is the sigmoid; the submitted score is the mean of the
-detectors' probabilities (Section~\ref{sec:calib}). The FREUID training data is born-digital and covers the
-seen document types; we augment it with external captured data (Section~\ref{sec:data}). Evaluation uses a
-public split $\mathcal{D}_{\text{pub}}$ (born-digital) and a private split $\mathcal{D}_{\text{prv}}$ shifted
-in acquisition (captured vs.\ born-digital) and label space (two unseen document types).
-$\mathcal{D}_{\text{prv}}$ is not available, and it conflicts with $\mathcal{D}_{\text{pub}}$
-(Section~\ref{sec:antagonism}): a model tuned for one split is weak on the other. We therefore submit one
-model built for the private split (Section~\ref{sec:models}). Every detector uses the same feed-forward
-pipeline: decode $\rightarrow$ resize with ImageNet normalization $\rightarrow$ DTC detector $\rightarrow$
-sigmoid.
+Let $x$ be an image and $y\in\{0,1\}$ its fraud label. Each detector is an RGB backbone with a single-logit
+head. It produces a fraud logit $\ell(x)$ and a probability $\sigma(\ell(x))\in[0,1]$, where $\sigma$ is the
+sigmoid. The submitted score is the arithmetic mean of the two detectors' probabilities. Training data is
+born-digital and covers the five seen document types; the private evaluation adds document types that are not
+in training. Because the private data is not available at submission time, we do not fit to it; instead we
+select the recipe by leave-one-document-type-out cross-validation on the training types
+(Section~\ref{sec:data}). Every detector uses the same feed-forward pipeline: decode, resize to $896$ pixels
+with ImageNet normalization, backbone, single-logit head, and sigmoid (Fig.~\ref{fig:arch}).
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\resizebox{\textwidth}{!}{%
+\resizebox{\columnwidth}{!}{%
 \begin{tikzpicture}[
   font=\small,
   block/.style={draw=axgray, rounded corners=2pt, fill=blockbg, align=center,
-                minimum height=8mm, inner sep=3pt, text width=22mm},
-  trace/.style={draw=axgray, rounded corners=2pt, fill=tracebg, align=center,
-                minimum height=8mm, inner sep=3pt, text width=22mm},
-  fuse/.style={draw=axgray, rounded corners=2pt, fill=cpub!12, align=center,
-               minimum height=10mm, inner sep=3pt, text width=17mm},
+                minimum height=9mm, inner sep=3pt, text width=26mm},
   io/.style={align=center, text width=15mm},
+  fda/.style={draw=axgray, rounded corners=2pt, fill=fdabg, align=center,
+              minimum height=9mm, inner sep=3pt, text width=24mm},
+  fuse/.style={draw=axgray, rounded corners=2pt, fill=cens!14, align=center,
+               minimum height=10mm, inner sep=3pt, text width=20mm},
   arr/.style={-{Latex[length=2mm]}, axgray, line width=0.7pt},
-  node distance=7mm and 12mm,
+  node distance=6mm and 12mm,
 ]
 \node[io] (img) {Input\\image};
-\node[block, right=16mm of img, yshift=12mm] (rgb) {RGB backbone\\{\scriptsize DINOv2 ViT-B / RegNetY}};
-\node[trace, right=16mm of img, yshift=-12mm] (hp) {High-pass\\residual};
-\node[trace, right=of hp] (te) {Trace\\encoder (CNN)};
-\node[block, right=of te, yshift=10mm, text width=20mm] (gt) {Global trace\\feature};
-\node[trace, right=of te, yshift=-10mm, text width=20mm] (patch) {$8{\times}8$ patch\\embeddings};
-\node[trace, right=of patch, text width=22mm] (cons) {Consistency\\stats (7-d)};
-\node[fuse, right=15mm of cons, yshift=10mm] (fusion) {Fusion\\MLP (512)};
-\node[block, right=12mm of fusion, text width=16mm] (out) {Fraud logit\\$\rightarrow\sigma\rightarrow p$};
-\node[align=center, below=4mm of cons, text width=26mm, font=\scriptsize, text=axgray]
-  (aux) {aux.\ consistency head\\(TraceMix self-sup.)};
+\node[fda, right=9mm of img] (aug) {FDA aug\\{\scriptsize train only, $\beta{=}0.12$}};
+\node[block, right=15mm of aug, yshift=11mm] (vit) {ViT-L/14 DINOv2\\{\scriptsize @896, full fine-tune}};
+\node[block, right=15mm of aug, yshift=-11mm] (cnx) {ConvNeXt-V2-L\\{\scriptsize @896, full fine-tune}};
+\coordinate (mid) at ($(vit.east)!0.5!(cnx.east)$);
+\node[fuse] (avg) at ($(mid)+(30mm,0)$) {Probability\\average};
+\node[block, right=12mm of avg, text width=18mm] (out) {Fraud score\\$p\in[0,1]$};
 
-\draw[arr] (img.east) |- (rgb.west);
-\draw[arr] (img.east) |- (hp.west);
-\draw[arr] (hp) -- (te);
-\draw[arr] (te) |- (gt.west);
-\draw[arr] (te) |- (patch.west);
-\draw[arr] (patch) -- (cons);
-\draw[arr] (rgb.east) -| (fusion.north);
-\draw[arr] (gt.east) -- (fusion.north west);
-\draw[arr] (cons.east) -- (fusion.south west);
-\draw[arr] (fusion) -- (out);
-\draw[arr, dashed] (cons.south) -- (aux.north);
+\draw[arr] (img) -- (aug);
+\draw[arr] (aug.east) |- (vit.west);
+\draw[arr] (aug.east) |- (cnx.west);
+\draw[arr] (vit.east) -- node[above, pos=0.55, font=\scriptsize, text=axgray]{$\sigma$} (avg.north west);
+\draw[arr] (cnx.east) -- node[below, pos=0.55, font=\scriptsize, text=axgray]{$\sigma$} (avg.south west);
+\draw[arr] (avg) -- (out);
 
 \begin{scope}[on background layer]
-  \node[draw=axgray!35, dashed, rounded corners=3pt, fit=(hp)(te)(gt)(patch)(cons),
+  \node[draw=axgray!35, dashed, rounded corners=3pt, fit=(vit)(cnx),
         inner sep=6pt,
-        label={[font=\scriptsize\itshape, text=axgray]above:trace-consistency branch (document-type-agnostic)}] {};
+        label={[font=\scriptsize\itshape, text=axgray]above:architecture-diverse pair (decorrelated)}] {};
 \end{scope}
 \end{tikzpicture}}
-\caption{The Double-Trace Consistency detector (DTC). A pretrained RGB backbone is fused with a high-pass
-forensic branch. The patch-consistency statistics measure whether the acquisition trace is internally
-coherent. This
-signal does not depend on document-type appearance. Each deployed model is one such detector. The
-private-best model averages three of them (Section~\ref{sec:diversity}).}
+\caption{The submitted unseen-type detector. Each training image passes Fourier Domain Adaptation, which
+randomizes its low-frequency global appearance. Two full fine-tuned backbones, a transformer and a
+convolutional network, each output a fraud probability; the submission score is their arithmetic mean. The
+two families are decorrelated, so the average is more stable on unseen document types than either alone.}
 \label{fig:arch}
-\end{figure*}
+\end{figure}
 
-\subsection{Double-Trace Consistency detector}
-\label{sec:dtc}
-Each detector (Fig.~\ref{fig:arch}) combines an ImageNet/DINOv2-pretrained RGB backbone with a forensic
-branch. The forensic branch applies a Gaussian high-pass residual and a small strided CNN
-(\texttt{TraceEncoder}) that keeps the spatial layout. It produces (i) a global trace feature and (ii) an
-$8\times8$ grid of L2-normalized patch trace embeddings $\{z_i\}$. We take the off-diagonal pairwise cosine
-similarities of $\{z_i\}$ and compute a 7-dimensional \textbf{consistency statistic} $s(x)$ (mean, standard
-deviation, minimum, low percentiles, and per-patch max-similarity summaries). The name comes from the two
-uses of the high-pass trace: the global trace feature and the patch-level consistency signal $s(x)$. A
-design assumption is that a
-genuine capture, even a legitimately re-captured one, is uniformly traced, while a locally edited and
-reprinted forgery is not. Because $s(x)$ does not depend on the document type, an unseen-type genuine
-document should not be flagged merely for looking unfamiliar. The fraud logit $\ell(x)$ is an MLP over
-$[\,\text{RGB feature}\,;\,\text{global trace}\,;\,s(x)\,]$
-($\text{Linear}\!\rightarrow\!512\!\rightarrow\!\text{GELU}\!\rightarrow\!\text{Dropout}(0.1)\!\rightarrow\!\text{Linear}\!\rightarrow\!1$).
-An auxiliary head on $s(x)$ is trained on self-supervised \texttt{TraceMix} coherent/incoherent labels,
-which are independent of the fraud label. The branch does not depend on the backbone, so any RGB family can
-host it. Training minimizes the binary cross-entropy on the fraud logit plus $\lambda_{\text{dtc}}$ times the
-same loss on the auxiliary consistency logit, with $\lambda_{\text{dtc}}=0.5$. We optimize with AdamW and a cosine schedule for three epochs in mixed
-precision; the ViT-B backbones are frozen except their last two blocks, and the RegNetY backbone is fully
-fine-tuned (Appendix~\ref{app:hparams}).
-
-\subsection{Capture robustness from data and augmentation}
-\label{sec:capture}
-In our experiments, robustness to captured documents came from \emph{data and augmentation} rather than from
-the architecture or loss changes we tried (Section~\ref{sec:rejected}). The private-best models train on FREUID plus diverse external
-captured corpora (Section~\ref{sec:data}) with heavy print-and-capture augmentation and FDA domain
-randomization~\cite{fda}. With probability $0.4$ we swap the low-frequency amplitude spectrum of an image
-with a donor of a \emph{different} document type ($\beta\in[0.01,0.08]$). This randomizes the type
-appearance and keeps the forensic phase.
-
-\subsection{Diversity-axis ensembling}
-\label{sec:diversity}
-A single capture detector is limited. The gain comes from averaging backbones that are \emph{decorrelated}
-across two axes: input resolution and architecture family. The two ViT-B detectors at $896$ and $1120$\,px
-are strongly correlated (Spearman $\rho=0.79$ on the proxy). RegNetY-160 at $1120$\,px, a different
-architecture family, is less correlated with each ViT-B ($\rho=0.69$ and $0.73$) and gives the largest
-ensemble gain (Fig.~\ref{fig:ladder}).
-
-\subsection{The submitted model}
+\subsection{The two detectors}
 \label{sec:models}
-We submit one model, the \textbf{private-best} ensemble: a probability average of three DTC detectors
-selected on the captured proxy, ViT-B/14 DINOv2 at $896$ and $1120$\,px and RegNetY-160 at $1120$\,px.
-RegNetY-160 is the strongest single detector on the proxy ($0.264$) and the least correlated with the two
-ViT-B detectors, so it contributes the largest ensemble gain (Section~\ref{sec:private-abl}). This is the
-model shipped in the reproducibility container.
+The submitted model averages two detectors that share the same recipe and differ only in backbone family.
+\begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
+  \item \textbf{ViT-L/14 DINOv2}: backbone \texttt{vit\_large\_patch14\_reg4\_dinov2.lvd142m}, a
+        self-supervised vision transformer, at $896$ pixels
+        (\texttt{checkpoints/exp\_fdab12\_all/epoch2.pt}).
+  \item \textbf{ConvNeXt-V2-L}: backbone \texttt{convnextv2\_large.fcmae\_ft\_in22k\_in1k}, a convolutional
+        network, at $896$ pixels (\texttt{checkpoints/exp\_cnxfda\_all/epoch2.pt}).
+\end{itemize}
+Both are \texttt{model\_type=rgb}: the backbone feeds a single linear logit that a sigmoid maps to
+$P(\text{fraud})$. There is no forensic residual branch and no auxiliary head. Both backbones are fully fine
+tuned (the training config sets \texttt{freeze\_backbone=false}). We choose two families on purpose. A
+self-supervised transformer and a convolutional network use different receptive fields and different global
+context, so they tend to fail on different document types. That difference is what makes their average robust
+on types neither has seen (Section~\ref{sec:results}).
 
-As a reference only, we also build a \textbf{public-best} ensemble with a field-tamper augmentation. It
-reaches a low public score but collapses on captured data (Section~\ref{sec:antagonism}), so we do not
-submit it.
+\subsection{Fourier Domain Adaptation}
+\label{sec:fda}
+The main lever for cross-type generalization is Fourier Domain Adaptation (FDA)~\cite{fda}, applied as a
+training augmentation. For a training image, we replace the low-frequency band of its amplitude spectrum with
+that of another training image (the donor), keeping the original phase, and invert back to an image. The
+band width is controlled by $\beta=0.12$. Amplitude at low frequencies carries the global color and layout
+of a document type, while phase and high-frequency amplitude carry structure and fine detail. Swapping the
+low-frequency amplitude therefore randomizes the overall look of the document while preserving the structure
+and local evidence that separate genuine from fraudulent. The network is pushed to decide on cues that
+transfer across types, so a genuine document of an unseen type is less likely to be flagged only because its
+global appearance is unfamiliar.
+
+\subsection{Tail-margin operating-point loss}
+\label{sec:loss}
+The FREUID Score includes APCER@1\%BPCER, the attack-acceptance rate at a strict $1\%$ genuine-rejection
+operating point. Plain binary cross-entropy optimizes average separation, not this tail. We therefore train
+with a tail-margin loss that adds a margin penalty on the hardest genuine examples near the operating
+threshold, so the model pushes the high-scoring genuine tail below the threshold that the metric reads. In
+probability space (\texttt{tail\_space=prob}), the loss uses a tail quantile of $0.99$ to locate the
+threshold region, a margin of $1.0$, a weight $\lambda=1.0$, an offset $\mu=0.2$, and a $300$-step warmup
+before the tail term is enabled (Appendix~\ref{app:hparams}). The full objective is the fraud binary
+cross-entropy plus this tail-margin term. This loss does not change the architecture and adds no inference
+cost.
+
+\subsection{Architecture-diverse ensembling}
+\label{sec:diversity}
+A single backbone is strong on some document types and weak on others (Section~\ref{sec:results}). We reduce
+this variance across types by averaging the two decorrelated backbones. The averaging is a plain arithmetic
+mean of the two probabilities, with no weighting and no learned combiner. We do not add same-family seed
+copies, because same-family models are highly correlated and their average barely moves the score. The
+diversity that helps here is across architecture family, where the two members disagree on different document
+types and the average cancels each member's type-specific errors.
 
 \subsection{Score calibration}
 \label{sec:calib}
-Each detector outputs a fraud logit. A sigmoid maps it to a per-model probability. The submission score is
-the arithmetic mean of the ensemble probabilities. We apply no temperature or learned calibration, and no
-post-processing differs between train and test time. Unreadable images are assigned $0.5$, so every input
-gives exactly one finite score in $[0,1]$.
+Each detector outputs a fraud logit that a sigmoid maps to a per-model probability. The submission score is
+the arithmetic mean of the two probabilities. We apply no temperature and no learned calibration, and no
+post-processing differs between training and test time. Images that fail to decode are assigned $0.5$, so
+every input gives exactly one finite score in $[0,1]$.
 
 \section{Data}
 \label{sec:data}
 We use the official FREUID \texttt{train/} images and \texttt{train.csv} metadata (Kaggle competition
-\texttt{the-freuid-challenge-2026-ijcai-ecai}). The private-best models also train on external
-data, combined with FREUID into a single manifest. Four corpora contribute \emph{genuine} captured documents
-only: MIDV-500~\cite{midv500}, MIDV-2019~\cite{midv2019}, MIDV-Holo~\cite{midvholo}, and
-BID~\cite{bid} (Brazilian CNH/RG/CPF photographs). FantasyID~\cite{fantasyid}
-(Idiap), a dataset of fantasy ID cards, contributes both captured-genuine images and GenAI attack images
-(face-swap and text edits), so it also adds externally labeled fraud examples. All corpora are used under
-their public research licenses, and the pretrained weights under their upstream licenses.
+\texttt{the-freuid-challenge-2026-ijcai-ecai}), assembled into a single manifest
+\texttt{manifests/freuid.parquet}. The submitted model trains on this FREUID training split only. It uses
+\textbf{no external data}: no captured-document corpora, no extra fraud sources, and no test data at any
+point. The pretrained backbone weights are used under their upstream licenses.
 
-\paragraph{Validation.} The public leaderboard reflects the born-digital distribution, so it does not
-predict the captured private set (Section~\ref{sec:antagonism}). For model selection we use a held-out
-FantasyID subset of $1{,}295$ images ($465$ genuine captured cards and $830$ GenAI-manipulated versions). It
-has no image overlap with the training data, so selection is not leaked. We use FantasyID because its
-captured genuine cards and non-training document styles match the two stated properties of the private test
-(Section~\ref{sec:intro}). However, FantasyID is also a training source, so this is an
-\emph{in-distribution} held-out estimate, not a cross-corpus test. It measures generalization to unseen
-FantasyID images and likely overestimates performance on a genuinely new corpus such as the private set. FantasyID is not an organizer-recommended proxy, and we do not claim it shares the private
-set's distribution. We read its FREUID score as an indicative held-out number, not a lower bound. We also
-hold out a random $10\%$ split of the training manifest for logging. The private set is not available at
-submission time, so proxy selection is the only option.
+\paragraph{Validation by leave-one-document-type-out.}
+The private split contains document types that are not in training, so a random held-out split of the
+training types would over-report cross-type performance. To estimate cross-type generalization with the data
+we have, we use leave-one-document-type-out (LODO) cross-validation: we hold out one training document type
+entirely, train on the other four, and score on the held-out type. This simulates the unseen-type condition,
+because the held-out type is absent from training. We ran LODO across the training types and report the two
+hardest folds, EGYPT and BENIN, in Section~\ref{sec:results}. The other held-out folds (GUINEA, MOZAMBIQUE,
+and MAURITIUS) were easier and are not the bottleneck; we do not report per-fold numbers for them here. For
+run logging we also hold out a random $8\%$ of the manifest during each training run
+(\texttt{val\_fraction=0.08}). LODO is an estimate on training types held out one at a time, not a sample of
+the private distribution, so it indicates the direction of cross-type generalization rather than a private
+score.
 
 \section{Inference}
 \label{sec:inference}
-The container entrypoint indexes a flat directory of images. It runs the three checkpoints (build with
-\texttt{pretrained=False}, load embedded weights, forward pass, sigmoid) and writes the per-image
-probability average as \texttt{id,label}. Test-time preprocessing is a plain resize to the native
-resolution with ImageNet normalization. The deployed models use no tiling, no multi-crop, and no test-time
-augmentation. The device is CUDA if available, else CPU. The per-model batch size follows the training
-config. Unreadable images are assigned $0.5$. The exact command is in Section~\ref{sec:repro}.
+The container entrypoint indexes a flat directory of images. It builds each checkpoint with
+\texttt{pretrained=False}, loads the embedded weights, runs a forward pass, and applies a sigmoid.
+Preprocessing is a plain resize to $896$ pixels with ImageNet normalization; there is no tiling, no
+multi-crop, and no test-time augmentation. For each image it averages the two per-model probabilities and
+writes \texttt{id,label}, where \texttt{label} is the average fraud probability in $[0,1]$. The device is
+CUDA if available, else CPU. Images that fail to decode are assigned $0.5$. The exact command is in
+Section~\ref{sec:repro}.
 
 \section{Results}
 \label{sec:results}
-
-\subsection{Main results}
-Table~\ref{tab:results} reports the submitted private-best model and the public-best reference on both
-splits. The private-best model reduces a two-ViT-B baseline from $0.384$ to $0.227$ on the captured proxy, and it
-stays well above chance on born-digital data. The public-best reference reaches a public FREUID Score of
-$0.00041$ (with three models; $0.00039$ for the full ensemble), but it collapses on captured data, so we do
-not submit it.
+We report leave-one-document-type-out (LODO) FREUID Scores (lower is better) on the two hardest folds. The
+two folds are hard for opposite reasons. EGYPT is appearance out-of-distribution: it has a distinct script
+and color palette, so a genuine EGYPT document is easy to flag as unfamiliar. BENIN carries subtle
+chroma-dependent attacks, where the separation between genuine and fraud lives in the color channels. No
+single uniform treatment fixes both at once, which is why we look for two backbones that fail differently.
 
 \begin{table}[t]
 \centering
 \small
-\setlength{\tabcolsep}{6pt}
-\caption{Main results. FREUID Score $\downarrow$ (lower is better). We submit the private-best model; the
-public-best is a public-leaderboard reference we do not submit, because it collapses on captured data
-(Fig.~\ref{fig:antagonism}). Captured-proxy figures are a small in-distribution held-out estimate.}
-\label{tab:results}
-\begin{tabular}{lcc}
+\setlength{\tabcolsep}{7pt}
+\caption{Leave-one-document-type-out FREUID Score $\downarrow$ (lower is better) on the two hardest folds.
+Each single backbone is strong on one fold and weak on the other; the probability-average ensemble is low on
+both and gives the best two-fold mean. The ensemble BENIN entry ($0.0062$) is the value implied by the
+measured EGYPT score and the measured two-fold mean.}
+\label{tab:folds}
+\begin{tabular}{lccc}
 \toprule
-Model & Public LB $\downarrow$ & Captured proxy $\downarrow$ \\
+Model & EGYPT $\downarrow$ & BENIN $\downarrow$ & Two-fold mean $\downarrow$ \\
 \midrule
-Private-best (submitted)               & $0.169$          & \textbf{$0.227$} \\
-Public-best (reference, not submitted) & \textbf{0.00041} & ${\approx}0.99$\,{\footnotesize(chance)} \\
+ViT-L/14 DINOv2 (FDA)     & \textbf{0.0020} & 0.0140          & 0.0080 \\
+ConvNeXt-V2-L (FDA)       & 0.0150          & \textbf{0.0023} & 0.0086 \\
+Ensemble (prob.\ average) & \textbf{0.0002} & 0.0062          & \textbf{0.0032} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Public and captured performance}
-\label{sec:antagonism}
-Fig.~\ref{fig:antagonism} plots each model on both distributions. The two lines cross. The public-best
-model is strong on born-digital data ($0.00041$) but at chance on captured data (about $0.99$; a random
-classifier scores about $0.99$ on APCER@1\%BPCER). A likely reason is that the public-best model relies on
-born-digital forensic cues (fine editing traces, JPEG discontinuities) that print-and-capture re-acquisition
-overwrites, so they no longer separate genuine from fraud. The private-best model shows the opposite order.
-The gap between the two models is about $400\times$ on the public set, and the order fully reverses on the
-captured proxy. A single model therefore cannot serve both distributions well, and the public score does not
-predict captured performance. The
-private-best model stays well above chance on born-digital data ($0.169$), so it is our submitted model: it
-does not collapse on either split, and it is the stronger choice on the captured and unseen-type content
-that the private split contains and the public split does not.
+\subsection{The two backbones are complementary}
+Table~\ref{tab:folds} and Fig.~\ref{fig:folds} show the pattern. The ViT-L/14 DINOv2 detector is strong on
+EGYPT ($0.0020$) but weak on BENIN ($0.0140$). The ConvNeXt-V2-L detector is the reverse: strong on BENIN
+($0.0023$) and weak on EGYPT ($0.0150$). Each model owns the fold that the other struggles with. Their
+predictions are decorrelated, with a correlation between about $0.78$ and $0.85$ across the folds, which is
+low enough for averaging to help. This is the cross-type version of the diversity effect: because the two
+families fail on different document types, neither alone is safe for a type it has not seen.
 
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{axis}[paperaxis, ymode=log,
-  xmin=-0.4, xmax=1.4, xtick={0,1},
-  xticklabels={Public\\(born-digital), Captured\\(proxy)},
-  xticklabel style={align=center},
-  ymin=1e-4, ymax=3, ylabel={FREUID Score (log scale)},
-  ytick={1e-4,1e-3,1e-2,1e-1,1},
-  legend pos=south east,
-]
-\addplot[cpub, line width=1.2pt, mark=*, mark size=2.2pt] coordinates {(0,0.00041) (1,0.99)};
-\addplot[cpriv, line width=1.2pt, mark=square*, mark size=2.2pt] coordinates {(0,0.169) (1,0.227)};
-\node[cpub,  font=\scriptsize, anchor=south west] at (axis cs:0,0.00041) {0.00041};
-\node[cpub,  font=\scriptsize, anchor=north east] at (axis cs:1,0.99) {0.99 (chance)};
-\node[cpriv, font=\scriptsize, anchor=south east] at (axis cs:0,0.169) {0.169};
-\node[cpriv, font=\scriptsize, anchor=west] at (axis cs:1,0.227) {0.227};
-\legend{public-best, private-best}
-\end{axis}
-\end{tikzpicture}
-\caption{Each model fits only one distribution. A model is strong (low) on its own distribution and weak
-(high) on the other, so the two lines cross. Lower is better.}
-\label{fig:antagonism}
-\end{figure}
-
-\subsection{Ensemble ladder (submitted model)}
-\label{sec:private-abl}
-Fig.~\ref{fig:ladder} shows the diversity-axis principle on the submitted model, measured on the captured
-proxy. A single ViT-B detector scores $0.427$. Adding a second ViT-B at a different resolution (correlated)
-gives a modest gain to $0.384$. Adding the decorrelated RegNetY-160 (a different architecture family) gives
-the large step to $0.227$, the deployed three-model card.
+\subsection{The ensemble generalizes across types}
+The probability average is low on both folds. On EGYPT it reaches $0.0002$, below both single models, and on
+BENIN it stays low at $0.0062$. The two-fold mean falls from about $0.0084$, the mean of the two single
+backbones, to $0.0032$ for the ensemble. The point is not that the average wins every fold, but that it does
+not collapse on either. A single backbone would be a risky choice for the private split, where the document
+type is unknown in advance, because it could land on the fold it is weak on. Averaging the two decorrelated
+backbones removes that risk in our LODO estimate, which is the behavior we want on unseen types. We do not
+claim any leaderboard rank or any private-test score; we have none, and LODO on training types is an estimate
+of direction, not a private measurement.
 
 \begin{figure}[t]
 \centering
 \begin{tikzpicture}
 \begin{axis}[paperaxis,
-  xmin=0.5, xmax=3.5, xtick={1,2,3},
-  xticklabels={ViT-B@896, +ViT-B@1120, +RegNetY@1120},
-  xticklabel style={rotate=20, anchor=east, font=\scriptsize},
-  ymin=0.18, ymax=0.47, ylabel={Captured-proxy FREUID $\downarrow$},
+  ybar=1.5pt, bar width=8pt,
+  ymode=log,
+  symbolic x coords={EGYPT, BENIN},
+  xtick=data,
+  ymin=1e-4, ymax=4e-2,
+  ylabel={LODO FREUID Score (log)},
+  ytick={1e-4,1e-3,1e-2},
+  legend pos=north west,
+  enlarge x limits=0.55,
 ]
-\addplot[cpriv, line width=1.1pt, mark=square*, mark size=2.5pt,
-  point meta=explicit symbolic, nodes near coords,
-  every node near coord/.append style={font=\scriptsize, color=axgray, anchor=south west}]
-  coordinates {(1,0.427)[0.427] (2,0.384)[0.384] (3,0.227)[0.227]};
+\addplot[fill=cvit, draw=cvit!55!black] coordinates {(EGYPT,0.0020) (BENIN,0.0140)};
+\addplot[fill=ccnx, draw=ccnx!55!black] coordinates {(EGYPT,0.0150) (BENIN,0.0023)};
+\addplot[fill=cens, draw=cens!55!black] coordinates {(EGYPT,0.0002) (BENIN,0.0062)};
+\legend{ViT-L DINOv2, ConvNeXt-V2-L, Ensemble}
 \end{axis}
 \end{tikzpicture}
-\caption{Ensemble ladder for the submitted three-model card (captured proxy, probability average). A second
-ViT-B at a new resolution gives a small gain; the decorrelated RegNetY-160 gives the large step to $0.227$.}
-\label{fig:ladder}
+\caption{Leave-one-document-type-out FREUID Score on the two hardest folds (log scale, lower is better). The
+transformer is strong on EGYPT and weak on BENIN; the convolutional backbone is the reverse; their average
+is low on both. The BENIN ensemble bar ($0.0062$) is the value implied by the measured EGYPT score and
+two-fold mean.}
+\label{fig:folds}
 \end{figure}
 
-\subsection{Rejected approaches}
-\label{sec:rejected}
-We also tested approaches that did not help, and we dropped them. Submitting the public-best ensemble on
-captured data was capture-blind (about chance). Adding MIDV-2020 to the capture mix gave no gain, because
-of a distribution mismatch. A learned domain router keyed on framing and context, and it misrouted cropped
-captured images. Warm-starting the capture model from the public-best checkpoint gave a worse peak than
-training from scratch. Architecture and loss levers on the capture axis
-(focal loss~\cite{focal}, CDC convolutions~\cite{cdcn}, MixStyle~\cite{mixstyle}) did worse than the
-data-diversity recipe.
+\subsection{Design choices we kept and dropped}
+\label{sec:ablation}
+Two choices carried the cross-type result. Fourier Domain Adaptation was kept because randomizing
+low-frequency appearance is what lets an unseen-type genuine document avoid being flagged for looking
+unfamiliar. Cross-architecture averaging was kept because it is the diversity that actually moves the score:
+the two families disagree on different document types. We dropped same-family seed ensembling, because
+same-family members are highly correlated and their average barely changes the result, unlike the
+cross-architecture pair reported above. We also kept the model to FREUID training data only, since external
+data did not target the born-digital, unseen-type condition that the private split presents.
 
 \section{Reproducibility}
 \label{sec:repro}
-The reproducibility container ships the private-best model. The three checkpoints are fetched from a GitHub
-Release at build time (SHA-256 verified) and baked into the image, and the models build with
+The reproducibility container ships the submitted two-model average. The two checkpoints are fetched from a
+GitHub Release at build time, verified by SHA-256, and baked into the image, and both models build with
 \texttt{pretrained=False}. The container therefore runs with \texttt{--network none} (no runtime downloads)
 and writes only to \texttt{/submissions}.
 \begin{itemize}[leftmargin=1.2em,itemsep=1pt,topsep=2pt]
@@ -431,14 +396,17 @@ and writes only to \texttt{/submissions}.
         \texttt{albumentations==2.0.8}, \texttt{opencv-python-headless==4.13.0.92}, \texttt{numpy==2.4.6},
         \texttt{pandas==3.0.3}, \texttt{scipy==1.17.1}, \texttt{scikit-learn==1.9.0},
         \texttt{pillow==12.2.0}, \texttt{pyyaml==6.0.3}, \texttt{pyarrow==24.0.0}; Python $\geq 3.11$.
-  \item \textbf{Hardware / runtime:} training on $2\times$ NVIDIA RTX PRO 6000 (Blackwell, 96\,GB);
-        inference uses a single GPU (about $1.6$\,h for the three models over the full test set on our
-        hardware; CPU fallback works but is slow). The base image targets CUDA 13; on a host with an older
-        driver, adjust the base tag and the \texttt{torch} index (weights are torch-version portable).
-  \item \textbf{Randomness:} global seed $42$. CUDA/cuDNN and AMP add minor non-determinism, within the
-        proxy's seed noise.
-  \item \textbf{Repository:} \url{https://github.com/hoppery/freuid-challenge-2026} (MIT license; the frozen
-        commit SHA is in our reproducibility reply).
+  \item \textbf{Container:} base image \texttt{nvidia/cuda:13.0.1-cudnn-runtime-ubuntu24.04}. Weights are
+        fetched from the GitHub Release, SHA-256 verified, and baked in, so the image runs offline with
+        \texttt{--network none}. Input is a flat \texttt{/data} directory of images; output is
+        \texttt{/submissions/submission.csv} with columns \texttt{id,label}.
+  \item \textbf{Hardware and runtime:} training on $2\times$ NVIDIA RTX PRO 6000 (Blackwell, 96\,GB);
+        inference uses a single GPU. The base image targets CUDA 13, which needs a host NVIDIA driver
+        $\geq 580.65.06$; on a host with an older driver the container falls back to CPU, so adjust the base
+        tag and the \texttt{torch} index to match (the checkpoint weights are torch-version portable).
+  \item \textbf{Randomness:} global seed $42$. CUDA, cuDNN, and mixed precision add minor non-determinism.
+  \item \textbf{Repository:} \url{https://github.com/hoppery/freuid-challenge-2026} (MIT license). The frozen
+        commit SHA is stated in our reproducibility reply.
 \end{itemize}
 
 \noindent\textbf{Build and run (organizer contract):}
@@ -468,34 +436,44 @@ Industries (Robots, Mobility, AI, Medical, etc.)].
 \appendix
 \section{Hyperparameters}
 \label{app:hparams}
+Both detectors share one training recipe and differ only in the backbone. Each is a $6$-epoch run, and we
+select epoch $2$ of each. FDA uses $\beta=0.12$. The tail-margin loss uses tail quantile $0.99$, margin
+$1.0$, weight $\lambda=1.0$, offset $\mu=0.2$, warmup $300$ steps, computed in probability space.
+
 \begin{table}[H]
 \centering
 \small
-\setlength{\tabcolsep}{5pt}
-\caption{Per-model hyperparameters of the private-best ensemble. Shared: AdamW, weight decay $0.05$, cosine
-LR schedule, 3 epochs, seed 42, AMP, DTC consistency weight $\lambda_{\text{dtc}}{=}0.5$,
-\texttt{tracemix\_p}{=}0.5, \texttt{fda\_p}{=}0.4, heavy print-and-capture augmentation.}
+\setlength{\tabcolsep}{6pt}
+\caption{Per-model hyperparameters of the submitted two-model average. Shared: AdamW, learning rate
+$5\times10^{-5}$, weight decay $0.05$, cosine schedule with $500$ warmup steps, $6$ epochs (epoch $2$
+selected), batch size $16$ with gradient accumulation $2$ (effective batch $32$), bf16 mixed precision,
+gradient checkpointing, gradient clip $1.0$, EMA with decay $0.999$, and seed $42$.}
 \label{tab:hparams}
-\begin{tabular}{lccc}
+\begin{tabular}{lcc}
 \toprule
-Hyperparameter & ViT-B @896 & ViT-B @1120 & RegNetY-160 @1120 \\
+Hyperparameter & ViT-L/14 DINOv2 & ConvNeXt-V2-L \\
 \midrule
-Backbone      & \multicolumn{2}{c}{\texttt{vit\_base\_patch14\_reg4\_dinov2.lvd142m}} & \texttt{regnety\_160.tv2\_in1k} \\
-Image size    & 896 & 1120 & 1120 \\
-Batch size    & 24  & 12   & 8 \\
-Learning rate & $1{\times}10^{-4}$ & $1{\times}10^{-4}$ & $5{\times}10^{-5}$ \\
-Weight decay  & 0.05 & 0.05 & 0.05 \\
-Epoch used    & 2 & 2 & 1 \\
-Backbone freezing & last 2 blocks $+$ norm & last 2 blocks $+$ norm & full fine-tune \\
-Seed          & 42 & 42 & 42 \\
+Backbone       & \texttt{vit\_large\_patch14\_} & \texttt{convnextv2\_large.} \\
+               & \texttt{reg4\_dinov2.lvd142m}  & \texttt{fcmae\_ft\_in22k\_in1k} \\
+Model type     & rgb (single logit) & rgb (single logit) \\
+Image size     & 896 & 896 \\
+Learning rate  & $5\times10^{-5}$ & $5\times10^{-5}$ \\
+Weight decay   & 0.05 & 0.05 \\
+Batch size (eff.) & 16 ($\times2$ = 32) & 16 ($\times2$ = 32) \\
+Epochs (used)  & 6 (2) & 6 (2) \\
+Backbone training & full fine-tune & full fine-tune \\
+Loss           & tail-margin & tail-margin \\
+FDA $\beta$    & 0.12 & 0.12 \\
+Seed           & 42 & 42 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\section{Additional ablations}
-\label{app:ablations}
-See Fig.~\ref{fig:ladder} (the diversity-axis contribution on the submitted model) and the
-rejected-approaches list in Section~\ref{sec:rejected}. Further ablations (capture-source diversity and
-resolution sweeps) are available in the repository notes.
+\section{Additional notes}
+\label{app:notes}
+See Table~\ref{tab:folds} and Fig.~\ref{fig:folds} for the leave-one-document-type-out results on the two
+hardest folds, and Section~\ref{sec:ablation} for the design choices we kept and dropped. Training and
+inference configuration files (\texttt{configs/exp\_fdab12\_all.yaml} and
+\texttt{configs/exp\_cnxfda\_all.yaml}) and further run notes are in the repository.
 
 \end{document}
