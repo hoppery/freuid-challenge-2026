@@ -129,7 +129,7 @@ docker run --gpus all --network none \
 ```
 src/freuid/           training + inference package (config, data, models, train, infer, metrics)
 configs/              experiment YAMLs (the two unseen-FDA configs are listed above)
-scripts/              training/eval utilities, docker_infer.py entrypoint
+scripts/              docker_infer.py (the Docker inference entrypoint)
 checkpoints/          model checkpoints (the two unseen-FDA ckpts are embedded in the Docker image)
 Dockerfile            reproducibility inference image
 ```
