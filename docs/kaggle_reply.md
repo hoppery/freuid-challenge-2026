@@ -13,7 +13,7 @@ FREUID Challenge 2026 - Reproducibility Package
 
 Team name: MobilityAI
 Kaggle usernames: suyongan
-Final Kaggle submission: [label / date-time as shown on Kaggle]
+Final Kaggle submission: submission_full.csv (2026-07-14 00:09 UTC, ref 54665177)
 
 Repository (this should be public git repository): https://github.com/hoppery/freuid-challenge-2026
 Commit SHA: 993dbc25e4dcf684eeac1c1a4b7b59447a3b754d
@@ -23,7 +23,7 @@ We confirm this repository at the stated commit reproduces our selected final
 submission and complies with the competition rules.
 
 Signed (team captain): suyongan
-Date (UTC): 2026-07-13
+Date (UTC): 2026-07-14
 
 ---
 
@@ -35,7 +35,8 @@ Date (UTC): 2026-07-13
   allowed if weights are unchanged. This SHA builds the exact submitted Docker and contains the final report.
 - **Technical report URL**: already set to the GitHub blob URL of `docs/technical_report.pdf` on `master`
   (renders in-browser). Swap to a SHA permalink if you prefer to pin it to the exact frozen commit.
-- **Final Kaggle submission** (the ONLY field still blank): fill AFTER you upload the submission CSV to
-  Kaggle and mark it as your final submission. Copy the label/date-time exactly as Kaggle shows it.
-- **Date (UTC)**: set to 2026-07-13 (today, UTC). If you post on a later UTC day, update it to that date.
+- **Final Kaggle submission**: FILLED = submission_full.csv (2026-07-14 00:09 UTC, ref 54665177), public 0.01853.
+  ** You MUST still SELECT this submission as final in the Kaggle UI ** (Submissions page). If you do not,
+  Kaggle auto-selects your best PUBLIC score, which is a different (field-tamper) model, not this one.
+- **Date (UTC)**: set to 2026-07-14 (UTC). Update if you post on a different UTC day.
 - Reply = this block only; organizers follow the repo README, not a second copy on the forum.
